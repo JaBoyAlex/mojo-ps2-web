@@ -41,7 +41,9 @@ Before publication, all five Node suites passed: disc hashing/normalization,
 stereo audio and ring-buffer behavior, camera and save-card rules, linked-save
 file recovery, and private-runtime package integrity/selection. The source and
 site publication gates require an exact file list; game Wasm, runtime packages,
-disc images, saves, original artwork and raw logs are excluded from the site.
+disc images, saves and raw logs are excluded from the site. Original artwork was
+initially excluded; the owner's transparent header logo is now explicitly included
+at their request and is available before runtime import.
 
 The new public-layout player was exercised through an ordinary static local
 server without custom headers. Its isolation service worker enabled the worker

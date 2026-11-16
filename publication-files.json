@@ -29,6 +29,7 @@
   "web/launcher.css",
   "web/launcher.mjs",
   "web/linked-save.mjs",
+  "web/mojo-logo.png",
   "web/prepare.html",
   "web/runtime-package.mjs",
   "web/save-card.mjs",
