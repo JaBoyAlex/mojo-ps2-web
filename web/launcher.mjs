@@ -291,6 +291,9 @@ else {
       const runtime=await unpackRuntime(blob,threaded);
       if(remember) {try{await runtimeCache('put',blob);}catch{status('Runtime ready; browser storage could not remember it.');}}
       const jsUrl=URL.createObjectURL(runtime.js),wasmUrl=URL.createObjectURL(runtime.wasm);
+      if(runtime.logo) {
+        const mark=document.querySelector('.wordmark'),picture=document.createElement('img');picture.src=URL.createObjectURL(runtime.logo);picture.alt='MOJO!';picture.className='original-logo';mark.replaceChildren(picture);mark.classList.add('has-original');
+      }
       Module.wasmBinary=new Uint8Array(await runtime.wasm.arrayBuffer());
       Module.locateFile=path=>path.endsWith('.wasm')?wasmUrl:new URL(path,location.href).href;
       engineStarted=true;$('runtime-file').disabled=true;

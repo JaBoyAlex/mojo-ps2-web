@@ -158,7 +158,7 @@ def main():
         out.mkdir(exist_ok=True)
         for path in build.glob('ps2web.*'):
             if path.suffix in ('.html','.js','.wasm'): shutil.copyfile(path,out/('index.html' if path.suffix=='.html' else path.name))
-        for name in ('launcher.css','launcher.mjs','disc.mjs','disc-worker.mjs','audio-worklet.js','input.mjs','save-card.mjs','linked-save.mjs','mojo-logo.png','backdrop.svg'):
+        for name in ('launcher.css','launcher.mjs','disc.mjs','disc-worker.mjs','audio-worklet.js','input.mjs','save-card.mjs','linked-save.mjs'):
             shutil.copyfile(ROOT/'web'/name,out/name)
         (out/'build-config.json').write_text(json.dumps({'threaded':variant=='threaded'})+'\n')
         (out/'empty-card.json').write_text(json.dumps(empty_card,separators=(',',':'))+'\n')

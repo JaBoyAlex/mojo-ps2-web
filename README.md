@@ -9,9 +9,9 @@ One resolution dropdown between Save location and Camera selects Original,
 Enhanced, High or Ultra rendering independently of display size and fullscreen.
 The choice is remembered and applies when Play starts the game. After starting,
 the launcher shows the active resolution; changing it requires reloading and
-selecting Play again. The owner-provided transparent MOJO! logo is served directly
-in the header, including before runtime import. Embedded runtime logos do not
-replace it. The logo remains the property of its respective rights holders.
+selecting Play again. An optional
+owner-provided PNG can be included with `--logo /path/to/logo.png`; it appears in
+the top-left corner after runtime import without publishing original artwork.
 
 The **Upscale HUD / 2D artwork** checkbox below resolution enables the existing
 native reconstruction shader at Enhanced resolution or higher. It defaults to
@@ -27,8 +27,7 @@ A browser player derived from the existing MOJO! native recompilation. The nativ
 project remains separate and unchanged. Public hosting contains independently
 authored launcher code and tools; each player prepares the translated game
 runtime locally from their own verified disc. No game code, assets, BIOS, compiled
-game Wasm or runtime packages are hosted or uploaded to CI, apart from the
-owner-requested header logo used for identification.
+game Wasm or runtime packages are hosted or uploaded to CI.
 
 ## Play
 
