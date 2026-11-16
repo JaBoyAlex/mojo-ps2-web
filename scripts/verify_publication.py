@@ -1,0 +1,54 @@
+"""Fail-closed source and Pages artifact gate. Never scans private game files."""
+import argparse
+import json
+from pathlib import Path
+import re
+import subprocess
+
+ROOT=Path(__file__).resolve().parents[1]
+PATTERNS=[
+    (b'\0asm','compiled Wasm'),
+    (bytes([127])+b'ELF'+bytes([1,1,1]),'PS2 executable'),
+    (b'PS2 Memory '+b'Card Format','memory-card bytes'),
+]
+SECRETS=re.compile(rb'-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----|gh[pousr]_[A-Za-z0-9]{30,}|github_pat_[A-Za-z0-9_]{40,}|sk-proj-[A-Za-z0-9_-]{30,}')
+HOME_PATH=re.compile(rb'[A-Za-z]:[/\\]Users[/\\][^\s\x00"<>]+|/ho' rb'me/[^/\s]+/|/Us' rb'ers/[^/\s]+/')
+
+def inspect(name,data):
+    if len(data)>500000: raise ValueError('Unexpected large publication file: '+name)
+    for marker,description in PATTERNS:
+        if marker in data: raise ValueError(description+' in '+name)
+    if SECRETS.search(data) or HOME_PATH.search(data): raise ValueError('Private content in '+name)
+
+def verify_site(directory):
+    from build_site import PUBLIC_FILES
+    expected={'index.html','build-config.json','empty-card.json','.nojekyll',*PUBLIC_FILES}
+    actual={p.name for p in directory.iterdir()}
+    if actual!=expected: raise ValueError('Pages output differs from exact public allowlist')
+    for p in directory.iterdir():
+        if not p.is_file() or p.is_symlink(): raise ValueError('Unsafe Pages entry')
+        inspect(p.name,p.read_bytes())
+    if json.loads((directory/'build-config.json').read_text())!={'localRuntime':True}: raise ValueError('Pages must use owner-local runtimes')
+    print('PASS: Pages contains only the public launcher, with no game runtime or assets')
+
+def main():
+    parser=argparse.ArgumentParser();parser.add_argument('--git',action='store_true');args=parser.parse_args()
+    allowed=set(json.loads((ROOT/'publication-files.json').read_text()))
+    for name in allowed:
+        path=ROOT/name
+        if not path.is_file() or path.is_symlink(): raise ValueError('Missing/linked source: '+name)
+        inspect(name,path.read_bytes())
+    if args.git:
+        def git(*args):return subprocess.check_output(['git','-C',str(ROOT),*args])
+        for name in git('ls-files').decode().splitlines():
+            if name not in allowed: raise ValueError('Unapproved tracked file: '+name)
+            inspect(name,git('show',':'+name))
+        for commit in git('rev-list','--all').decode().splitlines():
+            for row in git('ls-tree','-r',commit).decode().splitlines():
+                left,name=row.split('\t',1);mode,kind,oid=left.split()
+                if name not in allowed or mode not in ('100644','100755') or kind!='blob': raise ValueError('Unsafe history entry')
+                inspect(name,git('cat-file','blob',oid))
+    if (ROOT/'dist').is_dir(): verify_site(ROOT/'dist')
+    print('PASS: explicit source allowlist and private/proprietary content gate')
+
+if __name__=='__main__':main()
