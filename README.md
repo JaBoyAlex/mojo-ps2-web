@@ -12,6 +12,12 @@ The **Upscale HUD / 2D artwork** checkbox below resolution enables the existing
 native reconstruction shader at Enhanced resolution or higher. It defaults to
 Off, remembers the preference, and applies at the next game start.
 
+Fullscreen uses the complete display-sized canvas at the display's pixel ratio.
+The game keeps its original 4:3 aspect ratio, so widescreen displays have side
+bars instead of cropped or stretched gameplay. Internal rendering resolution
+remains controlled by the dropdown: fullscreen scales the whole rendered image
+to fit, and does not automatically increase the game's rendering resolution.
+
 A browser player derived from the existing MOJO! native recompilation. The native
 project remains separate and unchanged. Public hosting contains independently
 authored launcher code and tools; each player prepares the translated game

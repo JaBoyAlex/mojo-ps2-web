@@ -12,7 +12,7 @@ if(buildConfig.localRuntime) await prepareIsolation();
 let threaded=buildConfig.localRuntime?true:buildConfig.threaded;
 let engineStarted=false;
 let ready=false,disc=null,running=false,paused=false,audio=null,audioNode=null,lastBuffer=null,leaseRelease=null;
-let startTime=0,frameSamples=[],lastStat=0,lastFrames=0,lastGpu=0,underruns=0,importStarted=0,importMs=0;
+let startTime=0,frameSamples=[],lastStat=0,lastFrames=0,underruns=0,importStarted=0,importMs=0;
 const errors=[],keys=new Set(),bindings={ArrowUp:4,ArrowRight:5,ArrowDown:6,ArrowLeft:7,KeyZ:14,KeyX:13,KeyA:15,KeyS:12,KeyQ:10,KeyW:11,Digit1:8,Digit2:9,Enter:3,Backspace:0};
 const hasJSPI=typeof WebAssembly.Suspending==='function';
 function status(message,error=false) {$('status').textContent=message;$('status').classList.toggle('error',error);if(error) console.error(message);}
@@ -140,8 +140,10 @@ function doSync() {
 }
 function resize() {
   if(!running) return;
-  const rect=$('stage').getBoundingClientRect(),dpr=Math.min(devicePixelRatio||1,2);
-  const width=Math.max(1,Math.round(rect.width*dpr)),height=Math.max(1,Math.round(Math.min(innerHeight*.78,rect.width*.75)*dpr));
+  const stage=$('stage'),rect=stage.getBoundingClientRect(),fullscreen=document.fullscreenElement===stage;
+  const dpr=fullscreen?(devicePixelRatio||1):Math.min(devicePixelRatio||1,2);
+  const width=Math.max(1,Math.round(rect.width*dpr));
+  const height=Math.max(1,Math.round((fullscreen?rect.height:Math.min(innerHeight*.78,rect.width*.75))*dpr));
   if($('canvas').width!==width||$('canvas').height!==height) {$('canvas').width=width;$('canvas').height=height;Module._ps2web_resize(width,height);}
 }
 function pollInput() {
@@ -197,12 +199,9 @@ globalThis.Module={
   onFrame:()=>{
     const now=performance.now();frameSamples.push(now);if(frameSamples.length>240) frameSamples.shift();
     if(now-lastStat<1000) return;
-    const f=Module._ps2web_frames(),g=Module._ps2web_gpu_ms(),span=now-lastStat;
-    // The runtime extrapolates total GPU time from sampled passes. Its estimate
-    // can change retrospectively, so its delta is not a utilization percentage.
-    const gpuTiming=f>0&&Number.isFinite(g)&&g>=0?`GPU ~${(g/f).toFixed(1)} ms/frame`:'GPU timing pending';
-    $('stats').textContent=`${((f-lastFrames)*1000/span).toFixed(1)} guest frames/s · ${(Module.HEAPU8.length/1048576).toFixed(0)} MiB heap · ${gpuTiming} · audio ${Module._ps2web_audio_queued_ms().toFixed(0)} ms · VU interpreted ${Module._ps2web_vu_interpreted()} · frame ${f}`;
-    lastStat=now;lastFrames=f;lastGpu=g;
+    const f=Module._ps2web_frames(),span=now-lastStat;
+    $('stats').textContent=`${((f-lastFrames)*1000/span).toFixed(1)} guest frames/s · ${(Module.HEAPU8.length/1048576).toFixed(0)} MiB heap · audio ${Module._ps2web_audio_queued_ms().toFixed(0)} ms · VU interpreted ${Module._ps2web_vu_interpreted()} · frame ${f}`;
+    lastStat=now;lastFrames=f;
     if(threaded&&lastBuffer!==Module.HEAPU8.buffer) {lastBuffer=Module.HEAPU8.buffer;audioNode?.port.postMessage({buffer:lastBuffer,base:Module._ps2web_audio_ring()});}
   }
 };

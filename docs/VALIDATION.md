@@ -6,8 +6,10 @@ The former GPU percentage was computed by differencing `busy_ms()`. Inspection
 of the pinned runtime shows that this value is an extrapolation: average sampled
 pass time multiplied by total pass count. As new samples arrive, it can revise
 its estimate for earlier work. Its delta therefore is not hardware utilization
-and can generate values above 100 percent or below zero. The frontend now shows
-estimated GPU milliseconds per guest frame instead. No renderer, shader, timing,
+and can generate values above 100 percent or below zero. The display was first
+changed to estimated GPU milliseconds per guest frame, then removed at the
+owner's request because no accurate hardware percentage is available through
+the browser. No renderer, shader, timing,
 audio or compiled game changes were made for this correction.
 
 Read-only inspection of the owner's active hosted session confirmed scale 1,
@@ -17,6 +19,21 @@ interval, the heap stayed at 256 MiB and the audio underrun counter did not
 increase; the page reported approximately 60 guest frames/s. These checks found
 no hidden supersampling or additional active game instance. They do not establish
 that every scene or browser has identical GPU utilization to an earlier run.
+
+## Fullscreen sizing
+
+The former fullscreen path retained the windowed 78%-height limit for its backing
+buffer. Fullscreen now takes the stage's full dimensions and actual device pixel
+ratio, while the windowed layout retains its previous sizing. The game renderer
+still fits the whole 4:3 image with side bars where needed. The internal resolution
+dropdown is unchanged; a smaller fixed window scales that rendered image down.
+
+The actual resize function passed checks for normal window sizing and fullscreen
+pixel ratios 1, 2 and 3. A lightweight browser fixture using the production CSS
+and resize function verified a 1600 x 900 fullscreen viewport, stage and canvas,
+then restoration to the original 1178 x 562 canvas in a 1280 x 720 window. No
+second game or audio instance was started for this layout check. No runtime
+binary or game-rendering behavior was changed.
 
 2026-11-16. The original native repository and installation remain unchanged.
 
