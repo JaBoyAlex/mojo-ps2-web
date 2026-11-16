@@ -1,5 +1,23 @@
 # Validation record
 
+## GPU readout investigation
+
+The former GPU percentage was computed by differencing `busy_ms()`. Inspection
+of the pinned runtime shows that this value is an extrapolation: average sampled
+pass time multiplied by total pass count. As new samples arrive, it can revise
+its estimate for earlier work. Its delta therefore is not hardware utilization
+and can generate values above 100 percent or below zero. The frontend now shows
+estimated GPU milliseconds per guest frame instead. No renderer, shader, timing,
+audio or compiled game changes were made for this correction.
+
+Read-only inspection of the owner's active hosted session confirmed scale 1,
+701 x 507 presentation pixels at device pixel ratio 1, the worker build, one MOJO
+browser instance, and no runtime errors. Across a roughly 102-second observation
+interval, the heap stayed at 256 MiB and the audio underrun counter did not
+increase; the page reported approximately 60 guest frames/s. These checks found
+no hidden supersampling or additional active game instance. They do not establish
+that every scene or browser has identical GPU utilization to an earlier run.
+
 2026-11-16. The original native repository and installation remain unchanged.
 
 Before publication, all five Node suites passed: disc hashing/normalization,

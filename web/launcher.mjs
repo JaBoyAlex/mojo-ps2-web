@@ -193,7 +193,10 @@ globalThis.Module={
     const now=performance.now();frameSamples.push(now);if(frameSamples.length>240) frameSamples.shift();
     if(now-lastStat<1000) return;
     const f=Module._ps2web_frames(),g=Module._ps2web_gpu_ms(),span=now-lastStat;
-    $('stats').textContent=`${((f-lastFrames)*1000/span).toFixed(1)} guest frames/s · ${(Module.HEAPU8.length/1048576).toFixed(0)} MiB heap · GPU ${((g-lastGpu)/span*100).toFixed(0)}% · audio ${Module._ps2web_audio_queued_ms().toFixed(0)} ms · VU interpreted ${Module._ps2web_vu_interpreted()} · frame ${f}`;
+    // The runtime extrapolates total GPU time from sampled passes. Its estimate
+    // can change retrospectively, so its delta is not a utilization percentage.
+    const gpuTiming=f>0&&Number.isFinite(g)&&g>=0?`GPU ~${(g/f).toFixed(1)} ms/frame`:'GPU timing pending';
+    $('stats').textContent=`${((f-lastFrames)*1000/span).toFixed(1)} guest frames/s · ${(Module.HEAPU8.length/1048576).toFixed(0)} MiB heap · ${gpuTiming} · audio ${Module._ps2web_audio_queued_ms().toFixed(0)} ms · VU interpreted ${Module._ps2web_vu_interpreted()} · frame ${f}`;
     lastStat=now;lastFrames=f;lastGpu=g;
     if(threaded&&lastBuffer!==Module.HEAPU8.buffer) {lastBuffer=Module.HEAPU8.buffer;audioNode?.port.postMessage({buffer:lastBuffer,base:Module._ps2web_audio_ring()});}
   }
