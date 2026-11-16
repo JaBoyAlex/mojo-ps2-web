@@ -32,8 +32,13 @@ settings.before(saveSettings);
 const resolutionSettings=document.createElement('section');resolutionSettings.className='resolution-settings';resolutionSettings.setAttribute('aria-label','Rendering resolution');
 resolutionSettings.innerHTML='<span class="step">RESOLUTION</span><label for="render-scale">Game rendering</label><select id="render-scale"><option value="1">Original · 640 × 448</option><option value="2">Enhanced · 1280 × 896</option><option value="3">High · 1920 × 1344</option><option value="4">Ultra · 2560 × 1792</option></select><span id="resolution-note">Display size stays the same.</span>';
 settings.before(resolutionSettings);
+resolutionSettings.insertAdjacentHTML('beforeend','<div class="hud-option"><label><input id="upscale-hud" type="checkbox"> Upscale HUD / 2D artwork</label><span id="hud-note"></span></div>');
+$('upscale-hud').checked=storageGet('mojo.upscaleHud','false')==='true';
+function updateHudNote() {$('hud-note').textContent=Number($('render-scale').value)<2?'Requires Enhanced resolution or higher.':running?'Saved · applies at the next game start.':'Applies when you start the game.';}
+$('upscale-hud').onchange=()=>{storageSet('mojo.upscaleHud',String($('upscale-hud').checked));updateHudNote();};
 const savedScale=storageGet('mojo.renderScale','1');$('render-scale').value=['1','2','3','4'].includes(savedScale)?savedScale:'1';
-$('render-scale').onchange=()=>{storageSet('mojo.renderScale',$('render-scale').value);$('resolution-note').textContent=running?'Saved · applies at the next game start.':'Display size stays the same.';};
+$('render-scale').onchange=()=>{storageSet('mojo.renderScale',$('render-scale').value);$('resolution-note').textContent=running?'Saved · applies at the next game start.':'Display size stays the same.';updateHudNote();};
+updateHudNote();
 const linkedSave=new LinkedSave({onChange:({name,connected,error,dirty})=>{
   $('save-location').textContent=name?(connected?`Automatically saving to ${name} · loaded here next time.`:`${name} needs reconnection. Your browser copy is kept.`):'Automatic browser storage · progress is remembered on this device.';
   if(error) $('save-location').textContent+=' '+error;
@@ -221,6 +226,7 @@ $('play').onclick=async()=>{
     Module.localDisc=disc.iso;Module.discSize=disc.iso.size;
     Module.FS.writeFile('/game/core.elf',disc.elf);Module.FS.writeFile('/game/boot.txt','cdrom0:\\SLUS_207.41;1\n');
     Module.ENV.PS2_SCALE=$('render-scale').value;
+    Module.ENV.PS2_HUD_UPSCALE=$('upscale-hud').checked&&Number($('render-scale').value)>1?'1':'0';
     for(const press of params.getAll('press')) Module.arguments.push('--press',press);
     if(params.has('frames')) Module.arguments.push('--frames',params.get('frames'));
     await startAudio();
