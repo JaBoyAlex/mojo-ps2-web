@@ -74,7 +74,8 @@ runtime fallback. Unknown EE blocks still halt; no new CPU emulator was added.
 
 GitHub Pages cannot directly set the worker isolation headers. An application-
 scoped, same-origin service worker adds them locally and reloads once. The
-single-thread variant is selected if isolation remains unavailable. No game
+public player requires that isolation for its qualified worker audio path. The
+experimental single-thread host is not selected by the public player. No game
 content is fetched from a remote server or put in the service worker cache.
 
 ## Public build and deployment

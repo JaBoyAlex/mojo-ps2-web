@@ -7,5 +7,5 @@ export async function prepareIsolation() {
     await navigator.serviceWorker.ready;
     const key='mojo-isolation-reload:'+location.pathname;
     if(!sessionStorage.getItem(key)) {sessionStorage.setItem(key,'1');location.reload();await new Promise(()=>{});}
-  } catch(error) {console.warn('Isolation unavailable; using the single-thread fallback.',error);}
+  } catch(error) {console.warn('Browser isolation could not be enabled.',error);}
 }

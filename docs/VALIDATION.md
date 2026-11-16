@@ -41,7 +41,12 @@ and Enhanced resolution were remembered, and a second exported card matched the
 first byte for byte by SHA-256. This verifies card persistence, not a complete
 stage-progression round trip. Backup exports used isolated test data.
 
-The `?single=1` URL option explicitly selects the fallback for qualification.
+The serial fallback was tested on the hosted site and failed auditory
+qualification: its short copied-audio queue produced audible breakup, reported
+by the owner. The test was stopped. The public player therefore requires the
+existing worker runtime and its shared, audio-paced output; it does not silently
+switch to the experimental serial host. A browser unable to enable isolation
+gets an actionable startup message. No serial-audio stability claim is made.
 Physical controllers, actual Edge/Firefox/Safari clients, long playthroughs and
 auditory fidelity still require separate testing; Chromium results do not certify
 those platforms. The public site is usable with an owner-prepared runtime and

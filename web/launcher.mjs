@@ -7,7 +7,9 @@ import {prepareIsolation} from './isolation.mjs';
 const $=id=>document.getElementById(id),params=new URLSearchParams(location.search);
 const buildConfig=await (await fetch('build-config.json',{cache:'no-cache'})).json();
 if(buildConfig.localRuntime) await prepareIsolation();
-let threaded=buildConfig.localRuntime?(crossOriginIsolated&&!params.has('single')):buildConfig.threaded;
+// The worker host is the qualified audio path. Do not select the experimental
+// serial host merely because a browser lacks cross-origin isolation.
+let threaded=buildConfig.localRuntime?true:buildConfig.threaded;
 let engineStarted=false;
 let ready=false,disc=null,running=false,paused=false,audio=null,audioNode=null,lastBuffer=null,leaseRelease=null;
 let startTime=0,frameSamples=[],lastStat=0,lastFrames=0,lastGpu=0,underruns=0,importStarted=0,importMs=0;
@@ -253,7 +255,7 @@ const problems=[];
 if(!isSecureContext) problems.push('Serve over HTTPS or localhost.');
 if(!hasJSPI) problems.push('This browser needs WebAssembly JSPI. Use current Chrome/Edge, or a JSPI-enabled browser.');
 if(!navigator.gpu) problems.push('WebGPU is unavailable. Update your browser and GPU driver.');
-if(threaded&&!crossOriginIsolated) problems.push('Worker build needs COOP/COEP headers. Open ../single/ for the fallback.');
+if(threaded&&!crossOriginIsolated) problems.push('The game needs browser isolation for its worker audio. Reload once; if this persists, use a current desktop Chrome or Edge with service workers enabled.');
 $('backend').textContent=threaded?'WEBGPU / WORKERS':'WEBGPU / SINGLE THREAD';
 if(problems.length) {status(problems.join(' '),true);$('disc').disabled=true;}
 else {
