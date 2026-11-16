@@ -22,3 +22,27 @@ qualification results will be added after deployment. Firefox, Safari and mobile
 are not qualified solely by feature detection. File-system permissions may need
 renewal; unsupported browsers retain browser-storage saves and backup downloads.
 No complete-playthrough stability claim is made.
+
+## Actual GitHub Pages verification
+
+The public Pages workflow completed successfully for initial commit `c38c41a`.
+The HTTPS page returned 200. The actual hosted worker build was exercised in the
+desktop Chromium in-app browser, using only local file imports. It reached
+Stage 1, accepted keyboard movement, and ran around 60 guest frames/s at Enhanced
+resolution with a stable 256 MiB Wasm heap over the observed session. No console
+warnings/errors were reported by the browser log interface during these checks.
+The original logo was served from an owner-local Blob URL.
+
+The game wrote its card; a backup exported through the hosted UI passed the
+native ECC and filesystem validator: 337 written pages, no ECC errors, and the
+game's save directory containing three files. After reloading the hosted page,
+the runtime and disc were restored from browser storage, both inversion toggles
+and Enhanced resolution were remembered, and a second exported card matched the
+first byte for byte by SHA-256. This verifies card persistence, not a complete
+stage-progression round trip. Backup exports used isolated test data.
+
+The `?single=1` URL option explicitly selects the fallback for qualification.
+Physical controllers, actual Edge/Firefox/Safari clients, long playthroughs and
+auditory fidelity still require separate testing; Chromium results do not certify
+those platforms. The public site is usable with an owner-prepared runtime and
+does not distribute the game itself.

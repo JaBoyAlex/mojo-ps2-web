@@ -7,7 +7,7 @@ import {prepareIsolation} from './isolation.mjs';
 const $=id=>document.getElementById(id),params=new URLSearchParams(location.search);
 const buildConfig=await (await fetch('build-config.json',{cache:'no-cache'})).json();
 if(buildConfig.localRuntime) await prepareIsolation();
-let threaded=buildConfig.localRuntime?crossOriginIsolated:buildConfig.threaded;
+let threaded=buildConfig.localRuntime?(crossOriginIsolated&&!params.has('single')):buildConfig.threaded;
 let engineStarted=false;
 let ready=false,disc=null,running=false,paused=false,audio=null,audioNode=null,lastBuffer=null,leaseRelease=null;
 let startTime=0,frameSamples=[],lastStat=0,lastFrames=0,lastGpu=0,underruns=0,importStarted=0,importMs=0;

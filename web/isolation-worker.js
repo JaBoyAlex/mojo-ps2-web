@@ -5,7 +5,7 @@ self.addEventListener('fetch',event=>{
   const url=new URL(event.request.url);
   if(url.origin!==self.location.origin||event.request.method!=='GET') return;
   event.respondWith((async()=>{
-    const response=await fetch(event.request);
+    const response=await fetch(event.request,{cache:'no-cache'});
     if(response.status===0) return response;
     const headers=new Headers(response.headers);
     headers.set('Cross-Origin-Opener-Policy','same-origin');
