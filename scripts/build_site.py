@@ -7,7 +7,7 @@ import shutil
 import build_web
 
 ROOT=Path(__file__).resolve().parents[1]
-PUBLIC_FILES=('launcher.css','launcher.mjs','disc.mjs','disc-worker.mjs','input.mjs','save-card.mjs','linked-save.mjs','audio-worklet.js','runtime-package.mjs','isolation.mjs','isolation-worker.js','prepare.html')
+PUBLIC_FILES=('launcher.css','launcher.mjs','disc.mjs','disc-worker.mjs','input.mjs','save-card.mjs','linked-save.mjs','audio-worklet.js','runtime-package.mjs','isolation.mjs','isolation-worker.js','prepare.html','backdrop.svg')
 
 def main():
     # mcformat.py is independently authored upstream formatter code. No ELF,

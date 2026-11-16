@@ -2,9 +2,14 @@
 
 Public player: https://jaboyalex.github.io/mojo-ps2-web/
 
+The page backdrop is original, static vector artwork of floating tracks and
+rolling marbles. It contains no extracted game artwork or animation loop.
+
 One resolution dropdown between Save location and Camera selects Original,
 Enhanced, High or Ultra rendering independently of display size and fullscreen.
-The choice is remembered and applies at the next game start. An optional
+The choice is remembered and applies when Play starts the game. After starting,
+the launcher shows the active resolution; changing it requires reloading and
+selecting Play again. An optional
 owner-provided PNG can be included with `--logo /path/to/logo.png`; it appears in
 the top-left corner after runtime import without publishing original artwork.
 

@@ -12,12 +12,14 @@ if(buildConfig.localRuntime) await prepareIsolation();
 let threaded=buildConfig.localRuntime?true:buildConfig.threaded;
 let engineStarted=false;
 let ready=false,disc=null,running=false,paused=false,audio=null,audioNode=null,lastBuffer=null,leaseRelease=null;
+let initialized=false,starting=false,activeScale=null,activeHud=false,resolveInitialization;
+const initialization=new Promise(resolve=>{resolveInitialization=resolve;});
 let startTime=0,frameSamples=[],lastStat=0,lastFrames=0,underruns=0,importStarted=0,importMs=0;
 const errors=[],keys=new Set(),bindings={ArrowUp:4,ArrowRight:5,ArrowDown:6,ArrowLeft:7,KeyZ:14,KeyX:13,KeyA:15,KeyS:12,KeyQ:10,KeyW:11,Digit1:8,Digit2:9,Enter:3,Backspace:0};
 const hasJSPI=typeof WebAssembly.Suspending==='function';
 function status(message,error=false) {$('status').textContent=message;$('status').classList.toggle('error',error);if(error) console.error(message);}
 function fatal(error) {const message=error?.message||String(error);errors.push(message);status(message,true);$('game-status').textContent=message;$('game-status').classList.add('error');$('play').disabled=true;}
-function updateReady() {$('play').disabled=!(ready&&disc&&hasJSPI&&navigator.gpu&&(!threaded||crossOriginIsolated));}
+function updateReady() {$('play').disabled=starting||!(ready&&disc&&hasJSPI&&navigator.gpu&&(!threaded||crossOriginIsolated));}
 function storageGet(key,otherwise) {try{return localStorage.getItem(key)??otherwise;}catch{return otherwise;}}
 function storageSet(key,value) {try{localStorage.setItem(key,value);}catch{}}
 const camera={x:storageGet('mojo.rightStickInvertX','false')==='true',y:storageGet('mojo.rightStickInvertY','false')==='true'};
@@ -34,10 +36,14 @@ resolutionSettings.innerHTML='<span class="step">RESOLUTION</span><label for="re
 settings.before(resolutionSettings);
 resolutionSettings.insertAdjacentHTML('beforeend','<div class="hud-option"><label><input id="upscale-hud" type="checkbox"> Upscale HUD / 2D artwork</label><span id="hud-note"></span></div>');
 $('upscale-hud').checked=storageGet('mojo.upscaleHud','false')==='true';
-function updateHudNote() {$('hud-note').textContent=Number($('render-scale').value)<2?'Requires Enhanced resolution or higher.':running?'Saved · applies at the next game start.':'Applies when you start the game.';}
+function updateHudNote() {$('hud-note').textContent=Number($('render-scale').value)<2?'Requires Enhanced resolution or higher.':running?($('upscale-hud').checked===activeHud?'Active for this game.':'Saved · reload and Play to apply.'):'Applies when you start the game.';}
+function updateResolutionNote() {
+  $('resolution-note').textContent=running?`Active: ${640*activeScale} × ${448*activeScale}`+($('render-scale').value!==String(activeScale)?' · reload and Play to apply your new choice.':'. Display size stays the same.'):'Display size stays the same.';
+  updateHudNote();
+}
 $('upscale-hud').onchange=()=>{storageSet('mojo.upscaleHud',String($('upscale-hud').checked));updateHudNote();};
 const savedScale=storageGet('mojo.renderScale','1');$('render-scale').value=['1','2','3','4'].includes(savedScale)?savedScale:'1';
-$('render-scale').onchange=()=>{storageSet('mojo.renderScale',$('render-scale').value);$('resolution-note').textContent=running?'Saved · applies at the next game start.':'Display size stays the same.';updateHudNote();};
+$('render-scale').onchange=()=>{storageSet('mojo.renderScale',$('render-scale').value);updateResolutionNote();};
 updateHudNote();
 const linkedSave=new LinkedSave({onChange:({name,connected,error,dirty})=>{
   $('save-location').textContent=name?(connected?`Automatically saving to ${name} · loaded here next time.`:`${name} needs reconnection. Your browser copy is kept.`):'Automatic browser storage · progress is remembered on this device.';
@@ -182,18 +188,21 @@ async function setPaused(value) {
     await startAudio();$('canvas').focus();
   }
 }
-function snapshot() {return {threaded,running,paused,frames:ready?Module._ps2web_frames():0,heapBytes:Module.HEAPU8?.length,primitives:ready?Module._ps2web_primitives():0,gpuMs:ready?Module._ps2web_gpu_ms():0,vuInterpreted:ready?Module._ps2web_vu_interpreted():0,audioState:audio?.state,underrunSamples:underruns,importMs,elapsedMs:running?performance.now()-startTime:0,errors:[...errors]};}
+function snapshot() {return {threaded,running,paused,renderScale:activeScale,hudUpscale:activeHud,frames:initialized?Module._ps2web_frames():0,heapBytes:Module.HEAPU8?.length,primitives:initialized?Module._ps2web_primitives():0,gpuMs:initialized?Module._ps2web_gpu_ms():0,vuInterpreted:initialized?Module._ps2web_vu_interpreted():0,audioState:audio?.state,underrunSamples:underruns,importMs,elapsedMs:running?performance.now()-startTime:0,errors:[...errors]};}
 globalThis.mojoDiagnostics={snapshot};
 globalThis.Module={
   canvas:$('canvas'),noInitialRun:true,discUrl:'local-disc',arguments:['/game/core.elf'],
   print:text=>console.log(text),printErr:text=>console.log(text),onAbort:fatal,
   setStatus:text=>{if(text&&!disc) status(text);},
   preRun:[()=>{
+    // C++ constructors can cache libc's environment. Hold them until Play has
+    // supplied the selected settings; changing Module.ENV afterward is too late.
+    Module.addRunDependency('mojo-launch-settings');
     const FS=Module.FS;FS.mkdir('/game');FS.mkdir('/memcard');FS.mount(Module.IDBFS,{},'/memcard');
     Module.addRunDependency('mojo-save-load');
-    FS.syncfs(true,error=>{if(error) status('Save storage unavailable. Export your card before leaving.',true);Module.removeRunDependency('mojo-save-load');});
+    FS.syncfs(true,error=>{if(error) status('Save storage unavailable. Export your card before leaving.',true);ready=true;if(!error) status(disc?'Disc verified. Ready to play.':'Choose your verified disc to begin.');updateReady();Module.removeRunDependency('mojo-save-load');});
   }],
-  onRuntimeInitialized:()=>{ready=true;status(disc?'Disc verified. Ready to play.':'Choose your verified disc to begin.');updateReady();},
+  onRuntimeInitialized:()=>{initialized=true;resolveInitialization();},
   ps2CardSaved:()=>syncSaves().then(async()=>{const saved=await mirrorSave();$('game-status').textContent=saved?'Memory card saved to '+linkedSave.handle.name:linkedSave.handle?'Saved in browser · reconnect the save file.':'Memory card saved on this device';}).catch(reportSaveError),
   onHalt:reason=>{errors.push(reason);$('game-status').textContent='Stopped: '+reason;console.warn('Game stopped:',reason);},
   onFrame:()=>{
@@ -208,7 +217,8 @@ globalThis.Module={
 $('disc').onchange=()=>{const file=$('disc').files[0];if(file) validate(file);};
 $('forget').onclick=async()=>{try{await db('delete');status('Cached disc removed. Saves are retained.');}catch(error){status(error.message,true);}};
 $('play').onclick=async()=>{
-  if(!disc||!ready||running) return;
+  if(!disc||!ready||running||starting) return;
+  starting=true;$('play').disabled=true;
   try {
     if(navigator.locks) {
       const acquired=await new Promise((resolve,reject)=>navigator.locks.request('mojo-save-writer',{ifAvailable:true},lock=>{resolve(!!lock);if(lock) return new Promise(r=>{leaseRelease=r;});}).catch(reject));
@@ -226,10 +236,14 @@ $('play').onclick=async()=>{
     Module.FS.writeFile('/game/core.elf',disc.elf);Module.FS.writeFile('/game/boot.txt','cdrom0:\\SLUS_207.41;1\n');
     Module.ENV.PS2_SCALE=$('render-scale').value;
     Module.ENV.PS2_HUD_UPSCALE=$('upscale-hud').checked&&Number($('render-scale').value)>1?'1':'0';
+    activeScale=Number(Module.ENV.PS2_SCALE);activeHud=Module.ENV.PS2_HUD_UPSCALE==='1';
+    Module.removeRunDependency('mojo-launch-settings');
+    await initialization;
     for(const press of params.getAll('press')) Module.arguments.push('--press',press);
     if(params.has('frames')) Module.arguments.push('--frames',params.get('frames'));
     await startAudio();
     running=true;Module.running=true;startTime=lastStat=performance.now();$('launcher').hidden=true;$('game').hidden=false;resize();$('canvas').focus();
+    updateResolutionNote();
     $('open-save').disabled=true;
     $('game-status').textContent=threaded?'Running · WebGPU · EE/VU workers':'Running · WebGPU · single thread';
     const inputLoop=()=>{if(running) {pollInput();requestAnimationFrame(inputLoop);}};requestAnimationFrame(inputLoop);

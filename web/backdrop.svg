@@ -1,0 +1,76 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1920 1440" fill="none">
+  <!-- Original vector scenery: floating tracks and rolling marbles. No game assets. -->
+  <defs>
+    <radialGradient id="space">
+      <stop stop-color="#304946"/>
+      <stop offset="1" stop-color="#10181e"/>
+    </radialGradient>
+    <linearGradient id="stone" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#62716a"/>
+      <stop offset=".5" stop-color="#323e3e"/>
+      <stop offset="1" stop-color="#19282c"/>
+    </linearGradient>
+    <linearGradient id="rim" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#b1bc76"/>
+      <stop offset=".5" stop-color="#657b5d"/>
+      <stop offset="1" stop-color="#283e39"/>
+    </linearGradient>
+    <radialGradient id="marble" cx=".3" cy=".22" r=".85">
+      <stop stop-color="#f59b80"/>
+      <stop offset=".22" stop-color="#be5148"/>
+      <stop offset=".67" stop-color="#732d36"/>
+      <stop offset="1" stop-color="#261d2c"/>
+    </radialGradient>
+    <pattern id="tiles" width="48" height="48" patternUnits="userSpaceOnUse" patternTransform="rotate(25)">
+      <path d="M0 0H48V48H0Z" fill="#354543"/>
+      <path d="M0 0H48V48H0Z" stroke="#a9b39c" stroke-opacity=".16"/>
+      <path d="M6 6H42V42H6Z" stroke="#101e24" stroke-opacity=".3"/>
+    </pattern>
+    <g id="ball">
+      <ellipse cx="9" cy="61" rx="63" ry="17" fill="#071319" opacity=".5"/>
+      <circle r="61" fill="url(#marble)"/>
+      <g stroke="#edb098" stroke-width="3" opacity=".36">
+        <path d="M-46-25C-21-57 39-46 40-9S-20 39-23 9 17-19 19 1-5 17-7 5"/>
+        <path d="M-57-4C-45 24-8 53 24 34S62-12 39-42"/>
+        <path d="M-30-48C-8-64 26-59 45-35"/>
+      </g>
+      <ellipse cx="-20" cy="-32" rx="17" ry="8" fill="#ffe7bc" opacity=".25" transform="rotate(-30 -20 -32)"/>
+      <circle r="60" stroke="#ebc4a2" stroke-opacity=".22"/>
+    </g>
+  </defs>
+  <path fill="url(#space)" d="M0 0H1920V1440H0Z"/>
+  <g fill="#b4c5b0" opacity=".22">
+    <circle cx="94" cy="117" r="1.6"/><circle cx="254" cy="294" r="1"/>
+    <circle cx="458" cy="58" r="1"/><circle cx="1471" cy="121" r="1.5"/>
+    <circle cx="1848" cy="398" r="1.5"/><circle cx="1697" cy="780" r="1"/>
+    <circle cx="132" cy="1090" r="1.7"/><circle cx="1770" cy="1128" r="1.3"/>
+    <circle cx="1608" cy="1310" r="1.8"/><circle cx="399" cy="1234" r="1"/>
+  </g>
+  <!-- Raised curved course, on the right edge of the page. -->
+  <g stroke-linecap="round">
+    <path d="M1515-100C1720 70 1935 66 1797 322S1480 529 1612 726 1905 849 1982 1030" stroke="#07151d" stroke-width="208" transform="translate(0 30)"/>
+    <path d="M1515-100C1720 70 1935 66 1797 322S1480 529 1612 726 1905 849 1982 1030" stroke="url(#rim)" stroke-width="208"/>
+    <path d="M1515-100C1720 70 1935 66 1797 322S1480 529 1612 726 1905 849 1982 1030" stroke="#243536" stroke-width="187"/>
+    <path d="M1515-100C1720 70 1935 66 1797 322S1480 529 1612 726 1905 849 1982 1030" stroke="url(#tiles)" stroke-width="175"/>
+    <path d="M1515-100C1720 70 1935 66 1797 322S1480 529 1612 726 1905 849 1982 1030" stroke="#c8d89d" stroke-opacity=".15" stroke-width="2" stroke-dasharray="3 18"/>
+  </g>
+  <!-- A floating circular platform and its narrow entry track. -->
+  <g transform="translate(28 856) rotate(-23)">
+    <ellipse cy="28" rx="267" ry="178" fill="#0a1820"/>
+    <ellipse rx="267" ry="178" fill="url(#rim)"/>
+    <ellipse cy="-3" rx="252" ry="163" fill="url(#stone)"/>
+    <ellipse cy="-3" rx="244" ry="155" fill="url(#tiles)"/>
+    <ellipse cy="-3" rx="210" ry="126" stroke="#c7cfa4" stroke-opacity=".16" stroke-width="2"/>
+    <ellipse cy="-3" rx="145" ry="80" stroke="#a9b496" stroke-opacity=".13" stroke-width="2"/>
+    <path d="M195 105C344 151 311 314 198 403" stroke="#101f26" stroke-width="112"/>
+    <path d="M195 85C344 131 311 294 198 383" stroke="url(#rim)" stroke-width="112"/>
+    <path d="M195 85C344 131 311 294 198 383" stroke="url(#tiles)" stroke-width="91"/>
+  </g>
+  <use href="#ball" transform="translate(1798 202) rotate(18)"/>
+  <use href="#ball" transform="translate(91 800) scale(.76) rotate(-28)"/>
+  <g fill="url(#stone)" stroke="#778578" stroke-opacity=".25">
+    <path d="M128 382 182 353 225 379 219 426 163 445 122 419Z"/>
+    <path d="M1750 1050 1787 1028 1821 1048 1814 1084 1774 1094 1745 1073Z"/>
+    <path d="M303 1352 351 1328 388 1354 379 1395 333 1408 297 1384Z"/>
+  </g>
+</svg>

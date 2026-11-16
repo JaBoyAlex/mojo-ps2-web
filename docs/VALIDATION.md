@@ -47,8 +47,8 @@ The new public-layout player was exercised through an ordinary static local
 server without custom headers. Its isolation service worker enabled the worker
 build. The owner's runtime package and original BIN were imported through the
 file picker; the Wasm initialized and disc hashes passed. The startup sequence
-rendered at approximately 60 guest frames/s at Enhanced (1280 x 896) internal
-resolution, with 256 MiB heap, zero interpreted VU calls reported, and no console
+rendered at approximately 60 guest frames/s with Enhanced selected in the UI
+(the actual internal scale was not verified then), with 256 MiB heap, zero interpreted VU calls reported, and no console
 warnings/errors observed. The original PNG logo was loaded from a private Blob.
 These figures describe this machine and sequence, not a general benchmark.
 
@@ -63,8 +63,8 @@ No complete-playthrough stability claim is made.
 The public Pages workflow completed successfully for initial commit `c38c41a`.
 The HTTPS page returned 200. The actual hosted worker build was exercised in the
 desktop Chromium in-app browser, using only local file imports. It reached
-Stage 1, accepted keyboard movement, and ran around 60 guest frames/s at Enhanced
-resolution with a stable 256 MiB Wasm heap over the observed session. No console
+Stage 1, accepted keyboard movement, and ran around 60 guest frames/s with Enhanced
+selected (actual internal scale was not verified then), with a stable 256 MiB Wasm heap over the observed session. No console
 warnings/errors were reported by the browser log interface during these checks.
 The original logo was served from an owner-local Blob URL.
 
@@ -86,3 +86,27 @@ Physical controllers, actual Edge/Firefox/Safari clients, long playthroughs and
 auditory fidelity still require separate testing; Chromium results do not certify
 those platforms. The public site is usable with an owner-prepared runtime and
 does not distribute the game itself.
+
+## Resolution handoff correction
+
+A subsequent fullscreen investigation confirmed a launcher defect: Ultra was
+selected and Module.ENV contained scale 4, but libc had cached its environment
+before those settings were supplied. The running renderer's VRAM buffer was
+4,194,304 bytes, confirming scale 1. Earlier statements based on the dropdown
+alone did not establish an enhanced internal rendering resolution.
+
+The launcher now holds an Emscripten preRun dependency until Play supplies the
+resolution and HUD settings, before C++ constructors can cache the environment.
+It then waits for runtime initialization before audio or main starts. The existing
+private JavaScript/Wasm and AudioWorklet are unchanged. A regression test exercises
+all four choices with constructor-time environment caching, including selection
+after runtime loading. The UI distinguishes the active resolution from a choice
+saved for the next launch.
+
+With the unchanged owner runtime, the corrected local player was checked with
+Ultra selected after runtime loading: libc's cached environment included
+PS2_SCALE=4 and PS2_HUD_UPSCALE=1, and the renderer allocated a 67,108,864-byte
+VRAM buffer (4 MiB times scale squared), confirming scale 4. Fullscreen used a
+2560 x 1440 canvas for a 2560 x 1440 viewport at DPR 1 and retained scale 4.
+Stage 1 displayed with the complete image and side bars. These checks verify
+the actual renderer scale rather than relying on canvas size or the dropdown.
