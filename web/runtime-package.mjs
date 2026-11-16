@@ -1,7 +1,7 @@
 import {ISO_SHA256} from './disc.mjs';
 const text=new TextDecoder();
 export async function unpackRuntime(blob,threaded) {
-  if(blob.size<13||blob.size>100*1024*1024) throw new Error('Invalid runtime package size. Prepare it locally using the documented build.');
+  if(blob.size<13||blob.size>256*1024*1024) throw new Error('Invalid runtime package size. Prepare it locally using the documented build.');
   const header=new Uint8Array(await blob.slice(0,13).arrayBuffer());
   if(text.decode(header.subarray(0,9))!=='MOJOWEB1\n') throw new Error('Choose your locally prepared .mojo runtime package.');
   const size=new DataView(header.buffer).getUint32(9,true);
@@ -19,6 +19,19 @@ export async function unpackRuntime(blob,threaded) {
     if(digest!==entry.sha256) throw new Error('Runtime checksum mismatch. Prepare a fresh local package.');
     if(kind==='wasm'&&!WebAssembly.validate(bytes)) throw new Error('This browser cannot validate the required Wasm features.');
     result[kind]=new Blob([bytes],{type:kind==='js'?'text/javascript':kind==='logo'?'image/png':'application/wasm'});
+  }
+  result.runtimeBlob=blob;
+  if(meta.discImage) {
+    const entry=meta.discImage;
+    if(!Number.isSafeInteger(entry.offset)||!Number.isSafeInteger(entry.size)||entry.offset<0||entry.size<1||13+size+entry.offset+entry.size!==blob.size||entry.sha256!==ISO_SHA256) throw new Error('Invalid included disc. Prepare a fresh game file.');
+    for(const component of [...meta.variants.flatMap(v=>[v.js,v.wasm]),...(meta.logo?[meta.logo]:[])]) if(component.offset+component.size>entry.offset) throw new Error('Included disc overlaps the runtime.');
+    result.disc=blob.slice(13+size+entry.offset,13+size+entry.offset+entry.size,'application/octet-stream');
+    // Store the small runtime and verified disc separately, avoiding a second
+    // persistent copy of the disc when the existing disc cache is populated.
+    const plain={...meta};delete plain.discImage;
+    const encoded=new TextEncoder().encode(JSON.stringify(plain)),header=new Uint8Array(13);
+    header.set(new TextEncoder().encode('MOJOWEB1\n'));new DataView(header.buffer).setUint32(9,encoded.length,true);
+    result.runtimeBlob=new Blob([header,encoded,blob.slice(13+size,13+size+entry.offset)]);
   }
   return result;
 }

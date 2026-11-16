@@ -3,9 +3,42 @@ import hashlib
 import json
 from pathlib import Path
 import struct
+import os
+import shutil
+import tempfile
 
 MAGIC=b'MOJOWEB1\n'
 ISO='bcfba449a662cc898868317c4bc415e9a2084a53ae8b92b7a4a19efbaa54f3c5'
+
+def package_with_disc(runtime,disc,output):
+    """Add an owner-verified disc, without changing any JS/Wasm component bytes."""
+    runtime,disc,output=Path(runtime),Path(disc),Path(output)
+    with disc.open('rb') as stream:
+        if hashlib.file_digest(stream,'sha256').hexdigest()!=ISO: raise ValueError('The included disc must match the supported image.')
+    with runtime.open('rb') as source:
+        header=source.read(13)
+        if header[:9]!=MAGIC: raise ValueError('Invalid private runtime')
+        old_size=struct.unpack('<I',header[9:])[0]
+        meta=json.loads(source.read(old_size))
+        payload_size=meta.get('discImage',{}).get('offset',runtime.stat().st_size-13-old_size)
+        if not isinstance(payload_size,int) or payload_size<1: raise ValueError('Invalid private runtime payload')
+        meta['discImage']={'offset':payload_size,'size':disc.stat().st_size,'sha256':ISO}
+        encoded=json.dumps(meta,separators=(',',':')).encode()
+        output.parent.mkdir(parents=True,exist_ok=True)
+        fd,temp=tempfile.mkstemp(prefix='.mojo-preparing-',dir=output.parent)
+        try:
+            with os.fdopen(fd,'wb') as dest:
+                dest.write(MAGIC);dest.write(struct.pack('<I',len(encoded)));dest.write(encoded)
+                remaining=payload_size
+                while remaining:
+                    data=source.read(min(1024*1024,remaining))
+                    if not data: raise ValueError('Truncated private runtime payload')
+                    dest.write(data);remaining-=len(data)
+                with disc.open('rb') as image: shutil.copyfileobj(image,dest)
+            source.close()
+            os.replace(temp,output)
+        finally:
+            if os.path.exists(temp): os.unlink(temp)
 def package_runtime(distribution,output,logo=None):
     parts=[];variants=[];offset=0
     for variant in ('threaded','single'):

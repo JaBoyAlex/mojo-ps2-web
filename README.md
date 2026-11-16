@@ -31,10 +31,28 @@ game Wasm or runtime packages are hosted or uploaded to CI.
 
 ## Play
 
-Prepare `MOJO-runtime.mojo` locally, import it into the public player, then import
-your verified MOJO! USA BIN or ISO. The browser can remember both. Only the USA
+Download the preparation helper from the [setup page](https://jaboyalex.github.io/mojo-ps2-web/prepare.html).
+On Windows, extract the entire ZIP and open `Prepare-MOJO.exe`. Choose your disc,
+choose where to save, and select **Prepare my game**. The helper installs the
+build tools inside Ubuntu 24.04 on WSL2; if WSL/Ubuntu is missing, it offers the
+official installer. Finish Ubuntu's first-run prompts and restart if requested.
+Ubuntu 24.04 Linux has a corresponding `bash Prepare-MOJO.sh` launcher.
+
+Import the resulting private `MOJO-runtime.mojo` into the player once. It includes
+the existing runtime and verified disc, so a second disc selection is unnecessary.
+The browser validates the image and stores the runtime and disc separately,
+avoiding a duplicate persistent disc copy. Later visits can go straight to Play
+while browser data remains available. Existing runtime-only packages continue to
+work and request the disc separately. Only the USA
 PS2 SLUS_207.41, SYSTEM.CNF VER 1.02 disc with the exact supported ISO and ELF
 SHA-256 values is accepted. Selecting a disc does not upload it.
+
+The helper uses the existing builder and can reuse a verified local runtime.
+It does not replace the EE/VU workers, renderer, audio system or gameplay backend.
+First-time downloads and compilation need time and several GB of disk space.
+macOS/mobile preparation is not supported by the helper. The Windows helper is
+unsigned and does not change Windows security policy. Its source and source-bundle
+manifest are published; no game input is needed to build the helper itself.
 
 The extra preparation step keeps translated commercial code off the public host.
 A site that serves game-specific Wasm would distribute that code even if it also
@@ -96,11 +114,15 @@ content is fetched from a remote server or put in the service worker cache.
 ## Public build and deployment
 
 ```sh
+python scripts/build_preparer.py --windows  # Windows: builds both independent helper downloads
 python3 scripts/build_site.py
 python3 scripts/verify_publication.py
 python3 scripts/serve_web.py --directory dist --port 8622
 ```
 
+The Windows preparation-download CI job compiles the small independent helper
+and packages both setup downloads from an exact source list. The Linux site job
+downloads only those tooling ZIPs, scans their contents and builds the public site.
 The public build copies an exact allowlist and generates an empty-card template
 from the open-source formatter. It never reads `userdata/web-dist` or a game.
 The Pages workflow runs tests and publication scans, uploads only `dist`, and

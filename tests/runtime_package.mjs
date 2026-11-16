@@ -11,3 +11,15 @@ for(const threaded of [false,true]) {const result=await unpackRuntime(blob,threa
 await assert.rejects(()=>unpackRuntime(new Blob(['bad']),true),/size/);
 await assert.rejects(()=>unpackRuntime(new Blob([header,m,js,Buffer.alloc(wasm.length)]),true),/checksum/);
 console.log('PASS: local runtime variants, integrity checks and damaged-package rejection');
+const disc=Buffer.from('independently authored synthetic disc');
+const withDisc={...metadata,discImage:{offset:js.length+wasm.length,size:disc.length,sha256:ISO_SHA256}};
+function packed(meta,payload) {const encoded=Buffer.from(JSON.stringify(meta)),head=Buffer.alloc(13);head.write('MOJOWEB1\n');head.writeUInt32LE(encoded.length,9);return new Blob([head,encoded,payload]);}
+const prepared=await unpackRuntime(packed(withDisc,Buffer.concat([js,wasm,disc])),true);
+assert.equal(await prepared.disc.text(),disc.toString());
+assert.equal(prepared.runtimeBlob.size,blob.size);
+const remembered=await unpackRuntime(prepared.runtimeBlob,true);
+assert.equal(remembered.disc,undefined);assert.equal(await remembered.js.text(),js.toString());
+assert.deepEqual(new Uint8Array(await remembered.wasm.arrayBuffer()),new Uint8Array(wasm));
+await assert.rejects(()=>unpackRuntime(packed({...withDisc,discImage:{...withDisc.discImage,offset:0}},Buffer.concat([js,wasm,disc])),true),/disc/);
+await assert.rejects(()=>unpackRuntime(packed({...withDisc,discImage:{...withDisc.discImage,sha256:'bad'}},Buffer.concat([js,wasm,disc])),true),/disc/);
+console.log('PASS: single-import disc bundle, unchanged runtime components, separate cache without duplicate disc bytes, malformed disc descriptors rejected');

@@ -4,6 +4,10 @@ import json
 from pathlib import Path
 import re
 import subprocess
+import hashlib
+import io
+import stat
+import zipfile
 
 ROOT=Path(__file__).resolve().parents[1]
 PATTERNS=[
@@ -20,14 +24,41 @@ def inspect(name,data):
         if marker in data: raise ValueError(description+' in '+name)
     if SECRETS.search(data) or HOME_PATH.search(data): raise ValueError('Private content in '+name)
 
+def verify_preparer(path):
+    from build_preparer import SOURCES
+    windows=path.name=='prepare-mojo-windows.zip'
+    expected={'sources.zip','prepare.sh','README.txt','LICENSE.txt'}|({'Prepare-MOJO.exe'} if windows else {'Prepare-MOJO.sh','bundle-hashes.txt'})
+    with zipfile.ZipFile(path) as archive:
+        if set(archive.namelist())!=expected or len(archive.namelist())!=len(expected): raise ValueError('Unexpected preparation download entries')
+        if sum(e.file_size for e in archive.infolist())>2000000: raise ValueError('Preparation download is unexpectedly large')
+        for entry in archive.infolist():
+            if stat.S_ISLNK(entry.external_attr>>16): raise ValueError('Linked preparation download entry')
+            inspect(entry.filename,archive.read(entry))
+        if windows and not archive.read('Prepare-MOJO.exe').startswith(b'MZ'): raise ValueError('Missing Windows helper executable')
+        source_data=archive.read('sources.zip')
+        with zipfile.ZipFile(io.BytesIO(source_data)) as source:
+            allowed=set(SOURCES)|{'source-manifest.json'}
+            if set(source.namelist())!=allowed or len(source.namelist())!=len(allowed): raise ValueError('Preparation sources differ from exact allowlist')
+            manifest=json.loads(source.read('source-manifest.json'))
+            if manifest.get('version')!=1 or set(manifest['files'])!=set(SOURCES): raise ValueError('Invalid preparation source manifest')
+            for entry in source.infolist():
+                if stat.S_ISLNK(entry.external_attr>>16): raise ValueError('Linked preparation source')
+                data=source.read(entry);inspect(entry.filename,data)
+                if entry.filename!='source-manifest.json' and hashlib.sha256(data).hexdigest()!=manifest['files'][entry.filename]: raise ValueError('Damaged preparation source')
+        if not windows:
+            hashes=archive.read('bundle-hashes.txt').decode().splitlines()
+            if hashes!=[hashlib.sha256(source_data).hexdigest(),hashlib.sha256(archive.read('prepare.sh')).hexdigest()]: raise ValueError('Damaged Linux preparation bundle')
+
 def verify_site(directory):
     from build_site import PUBLIC_FILES
-    expected={'index.html','build-config.json','empty-card.json','.nojekyll',*PUBLIC_FILES}
+    from build_preparer import DOWNLOADS
+    expected={'index.html','build-config.json','empty-card.json','.nojekyll',*PUBLIC_FILES,*DOWNLOADS}
     actual={p.name for p in directory.iterdir()}
     if actual!=expected: raise ValueError('Pages output differs from exact public allowlist')
     for p in directory.iterdir():
         if not p.is_file() or p.is_symlink(): raise ValueError('Unsafe Pages entry')
-        inspect(p.name,p.read_bytes())
+        if p.name in DOWNLOADS: verify_preparer(p)
+        else: inspect(p.name,p.read_bytes())
     if json.loads((directory/'build-config.json').read_text())!={'localRuntime':True}: raise ValueError('Pages must use owner-local runtimes')
     print('PASS: Pages contains only the public launcher, with no game runtime or assets')
 

@@ -9,7 +9,24 @@ concurrency:
   group: pages
   cancel-in-progress: false
 jobs:
+  preparation-downloads:
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1
+        with:
+          python-version: '3.13'
+      - name: Build independent preparation tools only
+        run: python scripts/build_preparer.py --windows
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: preparation-downloads
+          path: userdata/preparer/prepare-mojo-*.zip
+          if-no-files-found: error
   build:
+    needs: preparation-downloads
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
@@ -26,6 +43,13 @@ jobs:
           node tests/web_settings.mjs
           node tests/web_linked_save.mjs
           node tests/runtime_package.mjs
+          python -m unittest discover -s tests -p test_preparation.py
+          bash -n preparer/prepare.sh
+          bash -n preparer/launch-linux.sh
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: preparation-downloads
+          path: userdata/preparer
       - name: Build only the public launcher
         run: |
           python scripts/build_site.py

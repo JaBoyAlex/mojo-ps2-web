@@ -110,3 +110,31 @@ VRAM buffer (4 MiB times scale squared), confirming scale 4. Fullscreen used a
 2560 x 1440 canvas for a 2560 x 1440 viewport at DPR 1 and retained scale 4.
 Stage 1 displayed with the complete image and side bars. These checks verify
 the actual renderer scale rather than relying on canvas size or the dropdown.
+
+## Simplified preparation and single-file import
+
+Preparation now has independent Windows x64 and Ubuntu 24.04 x64 helper downloads.
+They wrap the existing pinned builder; no EE/VU host, renderer, AudioWorklet or
+gameplay backend was changed. The Windows executable was compiled locally,
+passed its bundled-source checks and an actual Windows-to-WSL argument/bootstrap
+check (including spaces, Unicode and shell punctuation). Its controls and disc
+picker were inspected without starting tool installation or gameplay. A clean
+Windows installation/WSL installer round trip has not been qualified here.
+
+An actual owner disc was validated by the helper driver and the existing private
+runtime reused to create a 124,836,112-byte, owner-local single-import game file.
+All four JS/Wasm components were compared byte for byte with the working private
+package: identical. Importing that one file at an isolated local browser origin
+validated the included disc and enabled Play without a separate disc picker.
+After reload, Play became available without choosing either file again. IndexedDB
+contained one 10,832,019-byte runtime and one 114,003,968-byte disc, avoiding a
+duplicate cached disc. No game was started for this setup verification.
+
+Automated tests cover package integrity, unchanged component extraction, separate
+runtime caching, malformed disc descriptors, preservation of prior output after
+an invalid disc, and strict helper archive/source manifests. Both setup downloads
+contain only independent source and tooling, and are scanned as nested archives.
+The helper may perform the existing builder's native headless discovery on a
+fresh build; a new clean-machine full compilation was not repeated in this check.
+Browser-only disc-to-runtime compilation is not claimed. Manual and older
+runtime-only imports remain supported, and the header logo behavior is unchanged.

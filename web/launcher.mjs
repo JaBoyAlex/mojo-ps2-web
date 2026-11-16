@@ -120,12 +120,13 @@ async function validate(file,cache=true) {
       worker.postMessage(file);
     });
     disc=result;importMs=performance.now()-importStarted;$('disc-name').textContent=`Verified USA disc · ${(disc.iso.size/1048576).toFixed(1)} MiB`;
+    $('disc-import').hidden=true;
     status('Disc verified. Ready to play.');
     if(cache&&$('remember').checked) {
       try {await db('put',disc.iso);navigator.storage?.persist?.().catch(()=>{});}
       catch {status('Disc verified. Storage is full or unavailable; select the disc again next time.');}
     }
-  } catch(error) {disc=null;status(error.message,true);}
+  } catch(error) {disc=null;$('disc-import').hidden=false;status(error.message,true);}
   finally {$('disc').disabled=false;$('progress').hidden=true;updateReady();}
 }
 let saving=false,saveAgain=false,saveWaiters=[];
@@ -215,7 +216,7 @@ globalThis.Module={
   }
 };
 $('disc').onchange=()=>{const file=$('disc').files[0];if(file) validate(file);};
-$('forget').onclick=async()=>{try{await db('delete');status('Cached disc removed. Saves are retained.');}catch(error){status(error.message,true);}};
+$('forget').onclick=async()=>{try{await db('delete');$('disc-import').hidden=false;status('Cached disc removed. Saves are retained.');}catch(error){status(error.message,true);}};
 $('play').onclick=async()=>{
   if(!disc||!ready||running||starting) return;
   starting=true;$('play').disabled=true;
@@ -283,13 +284,18 @@ if(problems.length) {status(problems.join(' '),true);$('disc').disabled=true;}
 else {
   if(buildConfig.localRuntime) {
     const panel=document.createElement('div');panel.className='runtime-setup';
-    panel.innerHTML='<span class="step">01 / YOUR PREPARED GAME</span><h2>Prepare once. Play here.</h2><p>Create your private runtime from your own disc using the <a href="prepare.html">local preparation guide</a>. Then import that file below. Your runtime and disc stay on this device.</p><label class="file" for="runtime-file">Choose prepared runtime <span>↗</span></label><input id="runtime-file" type="file" accept=".mojo" hidden><p id="runtime-status" role="status">Checking for your remembered runtime…</p>';
+    panel.innerHTML='<span class="step">01 / FIRST-TIME SETUP</span><h2>Prepare once. Play here.</h2><div class="preparation-intro"><p>The preparation helper turns your own disc into one private game file. Choose your disc, let it prepare, then import the result below.</p><a class="file preparation-download" href="prepare-mojo-windows.zip" download>Download setup for Windows <span>↓</span></a><p><a href="prepare.html">Setup help &amp; Linux →</a></p></div><label class="file" for="runtime-file">Import prepared .mojo file <span>↗</span></label><input id="runtime-file" type="file" accept=".mojo" hidden><p id="runtime-status" role="status">Checking for your remembered game…</p>';
+    const platform=navigator.userAgentData?.platform||navigator.platform||'';
+    if(/Linux/i.test(platform)) {const link=panel.querySelector('.preparation-download');link.href='prepare-mojo-linux.zip';link.innerHTML='Download setup for Linux <span>↓</span>';}
+    else if(/Mac/i.test(platform)) {const link=panel.querySelector('.preparation-download');link.href='prepare.html';link.removeAttribute('download');link.innerHTML='See preparation options <span>→</span>';}
     const setup=document.querySelector('.setup');setup.querySelector('.step').textContent='02 / YOUR DISC';setup.prepend(panel);
     const loadRuntime=async(blob,remember)=>{
       if(engineStarted) throw new Error('Reload before selecting a different runtime.');
       $('runtime-status').textContent='Validating your private runtime…';
       const runtime=await unpackRuntime(blob,threaded);
-      if(remember) {try{await runtimeCache('put',blob);}catch{status('Runtime ready; browser storage could not remember it.');}}
+      if(!runtime.disc&&!disc) $('disc-import').hidden=false;
+      if(runtime.disc) {await validate(runtime.disc,true);if(!disc) throw new Error('The included disc did not pass validation. Prepare a fresh game file.');}
+      if(remember) {try{await runtimeCache('put',runtime.runtimeBlob);}catch{status('Game ready; browser storage could not remember the runtime.');}}
       const jsUrl=URL.createObjectURL(runtime.js),wasmUrl=URL.createObjectURL(runtime.wasm);
       if(runtime.logo) {
         const mark=document.querySelector('.wordmark'),picture=document.createElement('img');picture.src=URL.createObjectURL(runtime.logo);picture.alt='MOJO!';picture.className='original-logo';mark.replaceChildren(picture);mark.classList.add('has-original');
@@ -299,10 +305,11 @@ else {
       engineStarted=true;$('runtime-file').disabled=true;
       const engine=document.createElement('script');engine.src=jsUrl;engine.onerror=()=>fatal('Your runtime could not start. Prepare a fresh package.');document.body.appendChild(engine);
       $('runtime-status').textContent='Private runtime ready · '+(threaded?'worker build':'single-thread fallback');
+      panel.querySelector('.preparation-intro').hidden=true;panel.querySelector('label').hidden=true;panel.querySelector('h2').textContent='Prepared game ready.';
     };
     $('runtime-file').onchange=()=>{const file=$('runtime-file').files[0];if(file) loadRuntime(file,true).catch(error=>{$('runtime-status').textContent=error.message;$('runtime-status').classList.add('error');});};
-    runtimeCache('get').then(blob=>blob?loadRuntime(blob,false):$('runtime-status').textContent='Choose your locally prepared .mojo file.').catch(error=>{$('runtime-status').textContent=error.message;});
-    status('Import your prepared runtime and verified disc to begin.');
+    runtimeCache('get').then(blob=>blob?loadRuntime(blob,false):$('runtime-status').textContent='Import your prepared .mojo file, or get the helper above.').catch(error=>{$('runtime-status').textContent=error.message;});
+    status('Import your prepared game to begin.');
   } else {
     const engine=document.createElement('script');engine.src=$('engine').content.querySelector('script').getAttribute('src');engine.onerror=()=>fatal('Runtime download failed. Rebuild and serve the entire output directory.');document.body.appendChild(engine);
   }
