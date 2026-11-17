@@ -1,6 +1,8 @@
 import {preparationCache,digest} from './preparation-cache.mjs';
 let compiler,compilerWorker,compilerPin;
-const compileFlags=['-O2','-ffp-contract=off','-std=c++20','-pthread','-msimd128','-mtail-call','-fwasm-exceptions','-fPIC','-I/working/include','-I/working/generated'];
+// Keep header helpers inside the private module. Interposable inline definitions
+// otherwise import themselves through the dynamic loader's JavaScript stubs.
+const compileFlags=['-O2','-ffp-contract=off','-fvisibility-inlines-hidden','-std=c++20','-pthread','-msimd128','-mtail-call','-fwasm-exceptions','-fPIC','-I/working/include','-I/working/generated'];
 const report=(value,message)=>postMessage({type:'progress',value,message});
 const decode=bytes=>new TextDecoder().decode(bytes);
 async function translator(kind,input) {
@@ -79,6 +81,8 @@ async function compile(files,kind,headers) {
     '--export=mojo_install_'+kind,'--export=mojo_prepared_layout','--export=_emscripten_tls_init','-o',output,...objects]);
   if(result.returncode!==0)throw new Error('Your game could not be linked locally');
   const bytes=await compiler.fileSystem.readFile(output),module=await WebAssembly.compile(bytes);
+  const functions=new Set(WebAssembly.Module.exports(module).filter(entry=>entry.kind==='function').map(entry=>entry.name));
+  if(WebAssembly.Module.imports(module).some(entry=>entry.kind==='function'&&functions.has(entry.name)))throw new Error('The local compiler could not finish your game correctly.');
   if(WebAssembly.Module.imports(module).some(entry=>entry.name.includes('mojo_register_prepared')))throw new Error('Incomplete local game registration');
   if(WebAssembly.Module.exports(module).some(entry=>entry.name==='__tls_size'||entry.name==='__tls_align'))throw new Error('Unexpected thread-local game module');
   return bytes;

@@ -40,6 +40,9 @@ game Wasm or runtime packages are hosted or uploaded to CI.
 4. Select **Play MOJO!**. Later visits use the private browser cache, provided
    the browser profile and its site data remain available.
 
+When preparation tools change, the remembered disc is reused for an automatic
+rebuild. Save data is stored separately from prepared game modules.
+
 No installation or external preparation application is required. The browser
 uses the existing EE recompiler and vector translator, compiles private modules
 locally, and loads them into the existing WebGPU host with EE/VU workers and

@@ -1,5 +1,37 @@
 # Validation record
 
+## Startup video audio correction
+
+An unskipped intro exposed sustained audio starvation in the initial browser
+preparation release: approximately 33–37 guest frames/s during the video, then
+60 after it. The original static worker runtime maintained approximately 60
+through the same intro. Recompiling the private module with the original SDK
+did not fix it; a final Wasm optimization pass and local linker binding alone
+also did not restore the original speed.
+
+Import inspection found inline helpers exported and imported by the same game
+module. These self-imports used the dynamic loader's JavaScript resolution
+stubs. Compiling with `-fvisibility-inlines-hidden` keeps those helpers inside
+the private module. Preparation now rejects a module that still imports its
+own exported functions. Compiler flags participate in the private object-cache
+key, and the preparation-source hash versions the finished runtime cache, so
+existing browser preparations rebuild automatically from the remembered disc.
+No audio buffering, scheduling, floating-point rules, host runtime, renderer,
+save handling or legacy `.mojo` runtime was changed by this correction.
+
+The actual pinned browser compiler completed automatic preparation successfully;
+both resulting processor modules had zero function self-imports. An isolated
+Chromium run used a disposable MEMFS card and played the entire intro without
+skipping, then entered gameplay and exercised movement. It completed 7,203
+frames with zero interpreted VU calls and no reported runtime errors. The
+steady gameplay window measured 59.75 seconds at 59.98 guest frames/s, no added
+audio underruns, and at least 60 ms of queued audio. The intro maintained near
+60 frames/s after initial startup; one brief 992-sample underrun remained during
+the video, compared with sustained starvation before the change. This is a
+shared-machine check, not a guarantee against every startup hitch. Speaker
+output was muted while the original AudioWorklet processed real audio, so
+audible quality still benefits from player confirmation.
+
 ## GPU readout investigation
 
 The former GPU percentage was computed by differencing `busy_ms()`. Inspection
