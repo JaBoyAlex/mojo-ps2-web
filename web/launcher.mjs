@@ -4,6 +4,7 @@ import {ensureFormattedCard} from './save-card.mjs';
 import {LinkedSave} from './linked-save.mjs';
 import {unpackRuntime,runtimeCache} from './runtime-package.mjs';
 import {prepareIsolation} from './isolation.mjs';
+import {prepareInBrowser,rememberedPreparation} from './browser-prepare.mjs';
 const $=id=>document.getElementById(id),params=new URLSearchParams(location.search);
 const buildConfig=await (await fetch('build-config.json',{cache:'no-cache'})).json();
 if(buildConfig.localRuntime) await prepareIsolation();
@@ -11,6 +12,7 @@ if(buildConfig.localRuntime) await prepareIsolation();
 // serial host merely because a browser lacks cross-origin isolation.
 let threaded=buildConfig.localRuntime?true:buildConfig.threaded;
 let engineStarted=false;
+let browserModules=null,browserSetup=null,setupRunning=false;
 let ready=false,disc=null,running=false,paused=false,audio=null,audioNode=null,lastBuffer=null,leaseRelease=null;
 let initialized=false,starting=false,activeScale=null,activeHud=false,resolveInitialization;
 const initialization=new Promise(resolve=>{resolveInitialization=resolve;});
@@ -128,6 +130,7 @@ async function validate(file,cache=true) {
     }
   } catch(error) {disc=null;$('disc-import').hidden=false;status(error.message,true);}
   finally {$('disc').disabled=false;$('progress').hidden=true;updateReady();}
+  if(disc&&browserSetup&&!engineStarted)await browserSetup();
 }
 let saving=false,saveAgain=false,saveWaiters=[];
 function syncSaves() {
@@ -240,6 +243,10 @@ $('play').onclick=async()=>{
     activeScale=Number(Module.ENV.PS2_SCALE);activeHud=Module.ENV.PS2_HUD_UPSCALE==='1';
     Module.removeRunDependency('mojo-launch-settings');
     await initialization;
+    if(browserModules) {
+      Module.FS.writeFile('/prepared-ee.wasm',browserModules.ee);Module.FS.writeFile('/prepared-vu.wasm',browserModules.vu);
+      if(!await Module._mojo_load_game(0)||!await Module._mojo_load_game(1))throw new Error('Your remembered preparation could not load. Reload and try setup again.');
+    }
     for(const press of params.getAll('press')) Module.arguments.push('--press',press);
     if(params.has('frames')) Module.arguments.push('--frames',params.get('frames'));
     await startAudio();
@@ -285,31 +292,72 @@ else {
   if(buildConfig.localRuntime) {
     const panel=document.createElement('div');panel.className='runtime-setup';
     panel.innerHTML='<span class="step">01 / FIRST-TIME SETUP</span><h2>Prepare once. Play here.</h2><div class="preparation-intro"><p>The preparation helper turns your own disc into one private game file. Choose your disc, let it prepare, then import the result below.</p><a class="file preparation-download" href="prepare-mojo-windows.zip" download>Download setup for Windows <span>↓</span></a><p><a href="prepare.html">Setup help &amp; Linux →</a></p></div><label class="file" for="runtime-file">Import prepared .mojo file <span>↗</span></label><input id="runtime-file" type="file" accept=".mojo" hidden><p id="runtime-status" role="status">Checking for your remembered game…</p>';
+    if(buildConfig.browserPreparation) {
+      panel.innerHTML='<span class="step">01 / YOUR GAME</span><h2>Choose once. Play here.</h2><div class="preparation-intro"><p>Choose your USA MOJO! disc image. Your browser prepares and remembers the game automatically. No installation. Your files stay on this device.</p><p>First setup takes several minutes. Keep this tab open; later visits go straight to Play.</p></div><p id="runtime-status" role="status">Checking for your remembered game…</p><button id="prepare-retry" class="subtle" hidden>Retry setup</button><details class="preparation-options"><summary>Other setup options</summary><label class="file" for="runtime-file">Import prepared .mojo file <span>↗</span></label><input id="runtime-file" type="file" accept=".mojo" hidden><p><a href="prepare.html">Local preparation guide →</a></p></details>';
+      const discPanel=$('disc-import');discPanel.hidden=false;
+      for(const selector of ['.step','h2','p'])discPanel.querySelector(selector).hidden=true;
+    }
     const platform=navigator.userAgentData?.platform||navigator.platform||'';
-    if(/Linux/i.test(platform)) {const link=panel.querySelector('.preparation-download');link.href='prepare-mojo-linux.zip';link.innerHTML='Download setup for Linux <span>↓</span>';}
-    else if(/Mac/i.test(platform)) {const link=panel.querySelector('.preparation-download');link.href='prepare.html';link.removeAttribute('download');link.innerHTML='See preparation options <span>→</span>';}
-    const setup=document.querySelector('.setup');setup.querySelector('.step').textContent='02 / YOUR DISC';setup.prepend(panel);
+    if(!buildConfig.browserPreparation&&/Linux/i.test(platform)) {const link=panel.querySelector('.preparation-download');link.href='prepare-mojo-linux.zip';link.innerHTML='Download setup for Linux <span>↓</span>';}
+    else if(!buildConfig.browserPreparation&&/Mac/i.test(platform)) {const link=panel.querySelector('.preparation-download');link.href='prepare.html';link.removeAttribute('download');link.innerHTML='See preparation options <span>→</span>';}
+    const setup=document.querySelector('.setup');if(!buildConfig.browserPreparation)setup.querySelector('.step').textContent='02 / YOUR DISC';setup.prepend(panel);
     const loadRuntime=async(blob,remember)=>{
-      if(engineStarted) throw new Error('Reload before selecting a different runtime.');
+      if(running)throw new Error('Reload before selecting a different runtime.');
+      if(engineStarted&&!remember)return;
       $('runtime-status').textContent='Validating your private runtime…';
       const runtime=await unpackRuntime(blob,threaded);
       if(!runtime.disc&&!disc) $('disc-import').hidden=false;
       if(runtime.disc) {await validate(runtime.disc,true);if(!disc) throw new Error('The included disc did not pass validation. Prepare a fresh game file.');}
-      if(remember) {try{await runtimeCache('put',runtime.runtimeBlob);}catch{status('Game ready; browser storage could not remember the runtime.');}}
+      if(remember) {try{await runtimeCache('put',runtime.runtimeBlob);}catch{if(engineStarted)throw new Error('Browser storage could not keep the replacement. Free some space and try again.');status('Game ready; browser storage could not remember the runtime.');}}
+      if(engineStarted){location.reload();return;}
       const jsUrl=URL.createObjectURL(runtime.js),wasmUrl=URL.createObjectURL(runtime.wasm);
       if(runtime.logo) {
         const mark=document.querySelector('.wordmark'),picture=document.createElement('img');picture.src=URL.createObjectURL(runtime.logo);picture.alt='MOJO!';picture.className='original-logo';mark.replaceChildren(picture);mark.classList.add('has-original');
       }
       Module.wasmBinary=new Uint8Array(await runtime.wasm.arrayBuffer());
       Module.locateFile=path=>path.endsWith('.wasm')?wasmUrl:new URL(path,location.href).href;
-      engineStarted=true;$('runtime-file').disabled=true;
+      engineStarted=true;
       const engine=document.createElement('script');engine.src=jsUrl;engine.onerror=()=>fatal('Your runtime could not start. Prepare a fresh package.');document.body.appendChild(engine);
       $('runtime-status').textContent='Private runtime ready · '+(threaded?'worker build':'single-thread fallback');
       panel.querySelector('.preparation-intro').hidden=true;panel.querySelector('label').hidden=true;panel.querySelector('h2').textContent='Prepared game ready.';
     };
     $('runtime-file').onchange=()=>{const file=$('runtime-file').files[0];if(file) loadRuntime(file,true).catch(error=>{$('runtime-status').textContent=error.message;$('runtime-status').classList.add('error');});};
-    runtimeCache('get').then(blob=>blob?loadRuntime(blob,false):$('runtime-status').textContent='Import your prepared .mojo file, or get the helper above.').catch(error=>{$('runtime-status').textContent=error.message;});
-    status('Import your prepared game to begin.');
+    const activateBrowser=async runtime=>{
+      if(engineStarted)return;
+      browserModules=runtime;
+      const {default:create}=await import('./browser-tools/runtime/ps2web.js');
+      engineStarted=true;
+      // preRun retains the existing save load and launch-settings dependency.
+      // The factory completes after Play releases that dependency.
+      create(Module).catch(fatal);
+      panel.querySelector('h2').textContent='Your game is ready.';panel.querySelector('.preparation-intro').hidden=true;
+      $('runtime-status').textContent='Prepared privately in your browser. Select Play MOJO! to start.';
+      $('prepare-retry').hidden=true;
+    };
+    if(buildConfig.browserPreparation) {
+      let restoring=true;
+      browserSetup=async()=>{
+        if(restoring||setupRunning||engineStarted||!disc)return;
+        setupRunning=true;$('prepare-retry').hidden=true;$('progress').hidden=false;$('play').disabled=true;
+        try {
+          const runtime=await prepareInBrowser(disc,(value,message)=>{$('progress').value=value;$('runtime-status').textContent=message;status(message);});
+          await activateBrowser(runtime);
+        }catch(error){$('runtime-status').textContent=error.message;$('prepare-retry').hidden=false;status('Setup paused. Retry to continue from remembered progress.',true);}
+        finally{setupRunning=false;$('progress').hidden=true;updateReady();}
+      };
+      $('prepare-retry').onclick=browserSetup;
+      runtimeCache('get').then(async blob=>{
+        if(params.get('setup')==='browser')blob=null;
+        if(blob)return loadRuntime(blob,false);
+        const remembered=await rememberedPreparation().catch(()=>null);
+        if(remembered)await activateBrowser(remembered);
+        else $('runtime-status').textContent='Choose your disc image to begin automatic setup.';
+      }).catch(error=>{$('runtime-status').textContent=error.message;}).finally(()=>{restoring=false;if(disc&&!engineStarted)browserSetup();});
+      status('Choose your disc image. Everything is prepared locally.');
+    } else {
+      runtimeCache('get').then(blob=>blob?loadRuntime(blob,false):$('runtime-status').textContent='Import your prepared .mojo file, or get the helper above.').catch(error=>{$('runtime-status').textContent=error.message;});
+      status('Import your prepared game to begin.');
+    }
   } else {
     const engine=document.createElement('script');engine.src=$('engine').content.querySelector('script').getAttribute('src');engine.onerror=()=>fatal('Runtime download failed. Rebuild and serve the entire output directory.');document.body.appendChild(engine);
   }

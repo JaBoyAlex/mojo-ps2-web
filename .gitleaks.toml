@@ -1,0 +1,14 @@
+title = "MOJO public release scans"
+
+[extend]
+useDefault = true
+
+[[rules]]
+id = "generic-api-key"
+
+  [[rules.allowlists]]
+  description = "Pinned upstream SIMDe float16 enum comparisons, not credentials"
+  condition = "AND"
+  regexTarget = "match"
+  paths = ['''(?:^|[/!])browser-tools/compiler/cecdfcda360457a8f204\.br$''']
+  regexes = ['''^SIMDE_FLOAT16_API\s*==\s*SIMDE_FLOAT16_API_(FLOAT16|FP16|FP16_NO_ABI)$''']

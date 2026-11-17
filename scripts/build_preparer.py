@@ -16,6 +16,7 @@ SOURCES = (
     'web/disc.mjs', 'web/disc-worker.mjs', 'web/audio-worklet.js', 'web/input.mjs',
     'web/save-card.mjs', 'web/linked-save.mjs', 'web/runtime-package.mjs',
     'web/isolation.mjs', 'web/isolation-worker.js', 'web/backdrop.svg',
+    'web/browser-prepare.mjs', 'web/preparation-cache.mjs', 'web/third-party-notices.txt',
 )
 INSTRUCTIONS = '''PREPARE MOJO!
 

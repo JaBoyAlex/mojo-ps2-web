@@ -136,5 +136,56 @@ an invalid disc, and strict helper archive/source manifests. Both setup download
 contain only independent source and tooling, and are scanned as nested archives.
 The helper may perform the existing builder's native headless discovery on a
 fresh build; a new clean-machine full compilation was not repeated in this check.
-Browser-only disc-to-runtime compilation is not claimed. Manual and older
+That helper-only release did not provide browser-only disc-to-runtime compilation. Manual and older
 runtime-only imports remain supported, and the header logo behavior is unchanged.
+
+## Browser-only preparation — 2026-11-16
+
+An isolated prototype and then the production frontend accepted the owner's
+verified BIN, translated its executable with the existing recompiler, compiled
+private EE/VU modules entirely in browser workers, and reached Stage 1. No
+installer, external compiler process or prepared-file import was used in that
+flow. Reload restored the disc and modules and enabled Play without running or
+requesting the compiler again. The preparation context used a blank in-memory
+card; the actual game's existing IDBFS/linked-save path was retained. Its card
+was confirmed formatted. The earlier private `.mojo` package was also imported
+and launched successfully through the compatibility path.
+
+The six captured VU images produced eight compiled entries, including two jump
+targets. The fresh game instance registered those entries and reported zero
+interpreted VU calls. A prototype completed 3,600 frames with a 24.75-second
+steady window at 60 frames/s and no added audio underruns. Integrated tests also
+completed 3,600 frames at Original and Ultra/HUD settings without runtime errors.
+Ultra allocated the expected 64 MiB scaled VRAM buffer. Under the same scripted
+Ultra segment, browser preparation averaged about 39.2 guest frames/s and the
+established runtime about 38.6, with no added audio underruns in either measured
+window. Shared-machine startup timing varied. Subsequent quiet Original controls
+both advanced 600 frames in 10.00 seconds, again with no added underruns; the
+browser-prepared instance reported no runtime errors or interpreted VU calls.
+These are short Chromium checks, not controlled cross-device benchmarks or a
+complete playthrough. Speaker output was muted through a test gain node while
+the original shared AudioWorklet continued processing.
+
+The current generic host and both translators are built without a disc, ELF,
+translated game source or captured VU program as an input. The public artifact
+gate checks an exact tool allowlist, pinned compiler payloads, hashes, source
+provenance, private-content patterns and absence of linked game-unit symbols.
+Game bytes and resumable compilation objects remain in browser storage. The
+generic host includes a narrowly scoped Emscripten 6.0.11 startup patch: await
+dynamic-library synchronization inside a promising boundary before starting
+each pthread. Processor POD layout checks guard the older browser compiler's
+interface with that host. Worker scheduling, rendering and shared audio retain
+the established implementation.
+
+The embedded test browser declined requestFullscreen permission. Fullscreen
+code was unchanged; the existing sizing/ratio regression checks still pass.
+Actual OS fullscreen and other browser engines were not newly qualified here.
+The player continues to gate unsupported WebGPU/JSPI/isolation capabilities.
+
+Nested-archive Gitleaks scanning initially reported eight generic-key matches in
+the pinned compiler archive. All were upstream SIMDe float16 enum comparisons,
+not credentials. The repository scan configuration retains the default rules
+and excepts only those three exact comparison values at that one compiler path.
+A Brotli-compressed control at the same path confirmed the enum was excluded
+while a synthetic GitHub token was still detected. The actual release archive
+then passed. No credential rule or archive path was broadly disabled.

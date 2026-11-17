@@ -31,32 +31,37 @@ game Wasm or runtime packages are hosted or uploaded to CI.
 
 ## Play
 
-Download the preparation helper from the [setup page](https://jaboyalex.github.io/mojo-ps2-web/prepare.html).
-On Windows, extract the entire ZIP and open `Prepare-MOJO.exe`. Choose your disc,
-choose where to save, and select **Prepare my game**. The helper installs the
-build tools inside Ubuntu 24.04 on WSL2; if WSL/Ubuntu is missing, it offers the
-official installer. Finish Ubuntu's first-run prompts and restart if requested.
-Ubuntu 24.04 Linux has a corresponding `bash Prepare-MOJO.sh` launcher.
+1. Open the [player](https://jaboyalex.github.io/mojo-ps2-web/) in a current desktop
+   Chrome or Edge with WebGPU and WebAssembly JSPI available.
+2. Choose your legally obtained USA MOJO! PS2 ISO or BIN image.
+3. Leave the tab open while the browser validates the disc and prepares the game.
+   First setup takes several minutes. Completed compilation work can be reused
+   after an interrupted setup.
+4. Select **Play MOJO!**. Later visits use the private browser cache, provided
+   the browser profile and its site data remain available.
 
-Import the resulting private `MOJO-runtime.mojo` into the player once. It includes
-the existing runtime and verified disc, so a second disc selection is unnecessary.
-The browser validates the image and stores the runtime and disc separately,
-avoiding a duplicate persistent disc copy. Later visits can go straight to Play
-while browser data remains available. Existing runtime-only packages continue to
-work and request the disc separately. Only the USA
-PS2 SLUS_207.41, SYSTEM.CNF VER 1.02 disc with the exact supported ISO and ELF
-SHA-256 values is accepted. Selecting a disc does not upload it.
+No installation or external preparation application is required. The browser
+uses the existing EE recompiler and vector translator, compiles private modules
+locally, and loads them into the existing WebGPU host with EE/VU workers and
+its shared AudioWorklet. The compiler worker is terminated after preparation;
+later launches do not load the browser compiler. Preparation uses a disposable
+blank card and cannot alter the player's saved progress.
 
-The helper uses the existing builder and can reuse a verified local runtime.
-It does not replace the EE/VU workers, renderer, audio system or gameplay backend.
-First-time downloads and compilation need time and several GB of disk space.
-macOS/mobile preparation is not supported by the helper. The Windows helper is
-unsigned and does not change Windows security policy. Its source and source-bundle
-manifest are published; no game input is needed to build the helper itself.
+The site supplies only a generic host and independent open-source tools. It
+never supplies or uploads the disc, executable, translated source, prepared game
+modules or saves. Only USA PS2 SLUS_207.41, SYSTEM.CNF VER 1.02 with the exact
+supported disc and ELF hashes is accepted. Third-party software notices are in
+[third-party-notices.txt](web/third-party-notices.txt).
 
-The extra preparation step keeps translated commercial code off the public host.
-A site that serves game-specific Wasm would distribute that code even if it also
-asks for a disc. Runtime packages must remain on the owner's device.
+Existing private `.mojo` imports remain supported under **Other setup options**.
+The [local preparation guide](https://jaboyalex.github.io/mojo-ps2-web/prepare.html)
+provides the optional Windows/Ubuntu helper and developer build instructions.
+An existing remembered `.mojo` runtime continues to use its established build.
+`?setup=browser` selects browser preparation without deleting that older cache.
+
+Automatic browser storage and linked save files behave as before. Export a save
+backup before clearing site data, moving devices or switching browser profiles.
+Higher rendering resolutions demand more GPU time; Original is the default.
 
 ## Local preparation
 
@@ -100,10 +105,15 @@ ps2-native-recomp engine, ahead-of-time EE/VU translation, WebGPU compute render
 IOP interpreter and high-level PS2 services. The original native repository is
 not edited. Updating shared fixes means reviewing and updating one source pin.
 
-The public frontend loads the user's private runtime through local Blob URLs.
-It verifies package integrity, selects the worker or single-thread variant and
-stores it in IndexedDB if available. Unknown VU programs retain the upstream
-runtime fallback. Unknown EE blocks still halt; no new CPU emulator was added.
+The public frontend prepares private EE/VU modules inside browser workers. A
+generic shared-memory host loads them using the threaded native library loader;
+POD layout checks guard its interface with the browser compiler. A disposable
+preparation frame discovers vector programs using an in-memory blank card.
+The pinned SDK patch awaits its dynamic-library synchronization before starting
+each pthread. Audio processing, rendering and gameplay scheduling retain the
+existing worker host. Private `.mojo` packages remain available through the
+original Blob loader. Unknown VU programs retain the upstream runtime fallback;
+unknown EE blocks still halt. No new CPU emulator was added.
 
 GitHub Pages cannot directly set the worker isolation headers. An application-
 scoped, same-origin service worker adds them locally and reloads once. The
@@ -115,14 +125,18 @@ content is fetched from a remote server or put in the service worker cache.
 
 ```sh
 python scripts/build_preparer.py --windows  # Windows: builds both independent helper downloads
+source userdata/emsdk/emsdk_env.sh          # Ubuntu: activate Emscripten 6.0.11
+python3 scripts/build_browser_tools.py --sdk userdata/emsdk
 python3 scripts/build_site.py
 python3 scripts/verify_publication.py
 python3 scripts/serve_web.py --directory dist --port 8622
 ```
 
 The Windows preparation-download CI job compiles the small independent helper
-and packages both setup downloads from an exact source list. The Linux site job
-downloads only those tooling ZIPs, scans their contents and builds the public site.
+and packages both optional downloads from an exact source list. An independent
+Ubuntu job builds the generic host and translators with pinned Emscripten 6.0.11,
+then verifies the pinned browser compiler payloads. Neither job has game inputs.
+The site job downloads only those independent tools, scans them and assembles the site.
 The public build copies an exact allowlist and generates an empty-card template
 from the open-source formatter. It never reads `userdata/web-dist` or a game.
 The Pages workflow runs tests and publication scans, uploads only `dist`, and
@@ -133,10 +147,11 @@ use GitHub Actions. Private runtime generation never runs in hosted CI.
 
 The earlier local worker build was owner-tested and reported stable gameplay.
 Local native regression completed 3,100 frames with the original executable
-unchanged. Import hashes, audio rings, camera mapping, card formatting, save-file
-reconnection and recovery have automated tests. This does not establish the
-new public loader's hosted compatibility. Consult `docs/VALIDATION.md` for the
-actual publication checks and any remaining limits. No broad-browser or complete
+unchanged. Browser-only preparation and cached launch have reached Stage 1 in
+Chromium with the original shared AudioWorklet and no interpreted VU calls.
+Import hashes, audio rings, camera mapping, card formatting, save-file
+reconnection and recovery have automated tests. Consult `docs/VALIDATION.md` for
+the actual hosted checks and their limits. No broad-browser or complete
 playthrough qualification is implied by compilation or a short playtest.
 
 ## Licenses and scope

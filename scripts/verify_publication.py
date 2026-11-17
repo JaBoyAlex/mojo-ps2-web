@@ -16,13 +16,50 @@ PATTERNS=[
     (b'PS2 Memory '+b'Card Format','memory-card bytes'),
 ]
 SECRETS=re.compile(rb'-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----|gh[pousr]_[A-Za-z0-9]{30,}|github_pat_[A-Za-z0-9_]{40,}|sk-proj-[A-Za-z0-9_-]{30,}')
-HOME_PATH=re.compile(rb'[A-Za-z]:[/\\]Users[/\\][^\s\x00"<>]+|/ho' rb'me/[^/\s]+/|/Us' rb'ers/[^/\s]+/')
+HOME_PATH=re.compile(rb'[A-Za-z]:[/\\]Users[/\\][^\s\x00"<>]+|/ho' rb'me/[^/\s"\x27\x00<>]+/|/Us' rb'ers/[^/\s"\x27\x00<>]+/')
 
-def inspect(name,data):
-    if len(data)>500000: raise ValueError('Unexpected large publication file: '+name)
+def inspect(name,data,*,tool=False,third_party=False):
+    if len(data)>(26000000 if tool else 500000): raise ValueError('Unexpected large publication file: '+name)
     for marker,description in PATTERNS:
+        if tool and description=='compiled Wasm': continue
         if marker in data: raise ValueError(description+' in '+name)
-    if SECRETS.search(data) or HOME_PATH.search(data): raise ValueError('Private content in '+name)
+    if SECRETS.search(data) or (not third_party and HOME_PATH.search(data)): raise ValueError('Private content in '+name)
+
+def verify_browser_tools(directory):
+    from browser_compiler import FILES,PIN,RPC_FILES
+    expected={'runtime/ps2web.js','runtime/ps2web.wasm','tools/eerecomp.mjs','tools/eerecomp.wasm',
+              'tools/vurecomp.mjs','tools/vurecomp.wasm','headers.json','manifest.json',
+              'compiler/comlink.mjs','compiler/COMLINK-LICENSE.txt',*('compiler/'+name for name in FILES)}
+    actual={p.relative_to(directory).as_posix() for p in directory.rglob('*') if p.is_file()}
+    if directory.is_symlink() or any(p.is_symlink() for p in directory.rglob('*')): raise ValueError('Linked browser tooling entry')
+    if actual!=expected: raise ValueError('Browser tooling differs from exact independent-tool allowlist')
+    manifest=json.loads((directory/'manifest.json').read_text())
+    from build_web import PIN as ENGINE,SDK_VERSION
+    if manifest.get('engine')!=ENGINE or manifest.get('sdk')!=SDK_VERSION or manifest.get('compiler')!=PIN or manifest.get('profile')!={'vuCaptures':6}:
+        raise ValueError('Unrecognized generic tool provenance')
+    if set(manifest.get('files',{}))!=expected-{'manifest.json'}: raise ValueError('Incomplete browser tool manifest')
+    preparer=hashlib.sha256((ROOT/'web/preparation-worker.mjs').read_text(encoding='utf-8').encode()).hexdigest()
+    if manifest.get('preparer')!=preparer: raise ValueError('Mismatched browser preparation source')
+    code={name:sha for name,sha in manifest['files'].items() if not name.endswith('.txt')}
+    version=hashlib.sha256(json.dumps({'files':code,'preparer':preparer},sort_keys=True).encode()).hexdigest()
+    if manifest.get('version')!=version: raise ValueError('Invalid browser tool cache version')
+    for name in expected:
+        path=directory/name
+        if path.is_symlink() or not path.is_file(): raise ValueError('Linked browser tool')
+        data=path.read_bytes()
+        if name!='manifest.json' and hashlib.sha256(data).hexdigest()!=manifest['files'][name]: raise ValueError('Damaged browser tool: '+name)
+        if name.startswith('compiler/') and name[9:] in FILES:
+            original=data
+            if name.endswith('.js'):
+                original=data.replace(b'e.status:(s.push(String(e.stack||e)),-42)',b'e.status:-42')
+            sha,size=FILES[name[9:]]
+            if len(original)!=size or hashlib.sha1(b'blob '+str(size).encode()+b'\0'+original).hexdigest()!=sha: raise ValueError('Unrecognized third-party compiler payload')
+        elif name.startswith('compiler/'):
+            if hashlib.sha256(data).hexdigest()!=RPC_FILES.get(name[9:]): raise ValueError('Unrecognized RPC helper')
+        inspect(name,data,tool=True,third_party=name.startswith('compiler/'))
+    host=(directory/'runtime/ps2web.wasm').read_bytes()
+    if b'_ZN3gen9unit_' in host or b'gen::unit_' in host: raise ValueError('Translated game code in generic host')
+    print('PASS: exact generic tools, pinned compiler payloads and no linked game units')
 
 def verify_preparer(path):
     from build_preparer import SOURCES
@@ -53,14 +90,18 @@ def verify_site(directory):
     from build_site import PUBLIC_FILES
     from build_preparer import DOWNLOADS
     expected={'index.html','build-config.json','empty-card.json','.nojekyll',*PUBLIC_FILES,*DOWNLOADS}
-    actual={p.name for p in directory.iterdir()}
+    actual={p.name for p in directory.iterdir() if p.name!='browser-tools'}
     if actual!=expected: raise ValueError('Pages output differs from exact public allowlist')
     for p in directory.iterdir():
+        if p.name=='browser-tools':
+            if p.is_symlink() or not p.is_dir(): raise ValueError('Unsafe browser tooling directory')
+            verify_browser_tools(p);continue
         if not p.is_file() or p.is_symlink(): raise ValueError('Unsafe Pages entry')
         if p.name in DOWNLOADS: verify_preparer(p)
         else: inspect(p.name,p.read_bytes())
-    if json.loads((directory/'build-config.json').read_text())!={'localRuntime':True}: raise ValueError('Pages must use owner-local runtimes')
-    print('PASS: Pages contains only the public launcher, with no game runtime or assets')
+    if json.loads((directory/'build-config.json').read_text())!={'localRuntime':True,'browserPreparation':True}: raise ValueError('Pages must use browser-private game preparation')
+    if not (directory/'browser-tools').is_dir(): raise ValueError('Missing generic browser tools')
+    print('PASS: Pages contains only independent code/tools, with no game runtime or assets')
 
 def main():
     parser=argparse.ArgumentParser();parser.add_argument('--git',action='store_true');args=parser.parse_args()

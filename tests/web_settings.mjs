@@ -31,13 +31,13 @@ console.log('PASS: both camera axes match native mapping for every input; neutra
 // Exercise the actual launcher callbacks against Emscripten's ordering: preRun,
 // dependencies, C++ constructors (which cache ENV), onRuntimeInitialized, main.
 const launcher=readFileSync(new URL('../web/launcher.mjs',import.meta.url),'utf8');
-for(const scale of ['1','2','3','4']) {
+for(const browserPrepared of [false,true]) for(const scale of ['1','2','3','4']) {
   const elements=new Map(),element=id=>{if(!elements.has(id)) elements.set(id,{value:scale,checked:true,focus(){}});return elements.get(id);};
   let cachedEnv=null,mainCalled=false,audioStarted=false;
   const dependencies=new Set(),events=[];
   const context=vm.createContext({
     $:element,console,threaded:true,disc:{iso:{size:1},elf:new Uint8Array()},ready:false,running:false,starting:false,initialized:false,
-    activeScale:null,activeHud:false,leaseRelease:null,startTime:0,lastStat:0,params:new URLSearchParams(),navigator:{},
+    activeScale:null,activeHud:false,leaseRelease:null,startTime:0,lastStat:0,params:new URLSearchParams(),navigator:{},browserModules:browserPrepared?{ee:new Uint8Array(),vu:new Uint8Array()}:null,
     linkedSaveReady:Promise.resolve(),linkedSave:{read:async()=>null},
     ensureFormattedCard:async()=>{},loadEmptyTemplate(){},syncSaves(){},mirrorSave(){},
     status(){},updateReady(){},resize(){assert.equal(audioStarted,true);},updateResolutionNote(){},pollInput(){},requestAnimationFrame(){},
@@ -55,6 +55,7 @@ for(const scale of ['1','2','3','4']) {
     if(!dependencies.size) {cachedEnv={...module.ENV};events.push('constructors');module.onRuntimeInitialized();}
   };
   module.callMain=()=>{assert.equal(audioStarted,true);mainCalled=true;events.push('main');};
+  module._mojo_load_game=async kind=>{assert.ok(cachedEnv);assert.equal(audioStarted,false);events.push(kind?'vu':'ee');return 1;};
   module.preRun[0]();await new Promise(resolve=>setImmediate(resolve));
   assert.equal(context.ready,true);assert.equal(cachedEnv,null);assert.deepEqual([...dependencies],['mojo-launch-settings']);
   // Change the choice after runtime loading. It must still reach native getenv.
@@ -62,7 +63,7 @@ for(const scale of ['1','2','3','4']) {
   const playBlock=launcher.slice(launcher.indexOf("$('play').onclick="),launcher.indexOf("$('pause').onclick="));
   vm.runInContext(playBlock,context);await element('play').onclick();
   assert.equal(cachedEnv.PS2_SCALE,scale);assert.equal(cachedEnv.PS2_HUD_UPSCALE,scale==='1'?'0':'1');
-  assert.equal(mainCalled,true);assert.deepEqual(events,['constructors','audio','main']);
+  assert.equal(mainCalled,true);assert.deepEqual(events,browserPrepared?['constructors','ee','vu','audio','main']:['constructors','audio','main']);
   assert.equal(context.activeScale,Number(scale));
 }
 console.log('PASS: every resolution reaches the native environment before constructors, audio and game start; HUD requires scaling');
